@@ -6,9 +6,11 @@ from sqlalchemy.orm import sessionmaker
 from app.main import app
 from app.core.database import Base
 
-TEST_DATABASE_URL = "postgresql://postgres:syslft@localhost:5433/ProctoAI_test"
+from app.core.config import TEST_DATABASE_URL
 
-engine = create_engine(TEST_DATABASE_URL)
+test_database_url = TEST_DATABASE_URL
+
+engine = create_engine(test_database_url)
 TestingSessionLocal = sessionmaker(bind=engine)
 
 # Create tables ONCE

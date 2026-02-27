@@ -6,11 +6,6 @@ BEGIN;
 
 SET timezone = 'UTC';
 
--- --------------------------------------------------------
--- Helper: trigger function for auto-updating timestamps
--- (replaces MySQL's ON UPDATE CURRENT_TIMESTAMP)
--- --------------------------------------------------------
-
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -27,12 +22,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- --------------------------------------------------------
-
---
--- Table structure for table "longqa"
---
-
 CREATE TABLE longqa (
   longqa_qid BIGSERIAL PRIMARY KEY,
   test_id VARCHAR(100) NOT NULL,
@@ -41,12 +30,6 @@ CREATE TABLE longqa (
   marks INTEGER DEFAULT NULL,
   uid BIGINT DEFAULT NULL
 );
-
--- --------------------------------------------------------
-
---
--- Table structure for table "longtest"
---
 
 CREATE TABLE longtest (
   longtest_qid BIGSERIAL PRIMARY KEY,
@@ -58,12 +41,6 @@ CREATE TABLE longtest (
   uid BIGINT NOT NULL
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table "practicalqa"
---
-
 CREATE TABLE practicalqa (
   pracqa_qid BIGSERIAL PRIMARY KEY,
   test_id VARCHAR(100) NOT NULL,
@@ -73,12 +50,6 @@ CREATE TABLE practicalqa (
   marks INTEGER NOT NULL,
   uid BIGINT NOT NULL
 );
-
--- --------------------------------------------------------
-
---
--- Table structure for table "practicaltest"
---
 
 CREATE TABLE practicaltest (
   pid BIGSERIAL PRIMARY KEY,
@@ -91,12 +62,6 @@ CREATE TABLE practicaltest (
   marks INTEGER NOT NULL,
   uid BIGINT NOT NULL
 );
-
--- --------------------------------------------------------
-
---
--- Table structure for table "proctoring_log"
---
 
 CREATE TABLE proctoring_log (
   pid BIGSERIAL PRIMARY KEY,
@@ -114,17 +79,10 @@ CREATE TABLE proctoring_log (
   uid BIGINT NOT NULL
 );
 
--- Trigger to replicate ON UPDATE CURRENT_TIMESTAMP for proctoring_log
 CREATE TRIGGER trg_proctoring_log_timestamp
   BEFORE UPDATE ON proctoring_log
   FOR EACH ROW
   EXECUTE FUNCTION update_timestamp();
-
--- --------------------------------------------------------
-
---
--- Table structure for table "questions"
---
 
 CREATE TABLE questions (
   questions_uid BIGSERIAL PRIMARY KEY,
@@ -140,12 +98,6 @@ CREATE TABLE questions (
   uid BIGINT NOT NULL
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table "students"
---
-
 CREATE TABLE students (
   sid BIGSERIAL PRIMARY KEY,
   email VARCHAR(100) NOT NULL,
@@ -155,12 +107,6 @@ CREATE TABLE students (
   uid BIGINT NOT NULL
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table "studenttestinfo"
---
-
 CREATE TABLE studenttestinfo (
   stiid BIGSERIAL PRIMARY KEY,
   email VARCHAR(100) NOT NULL,
@@ -169,12 +115,6 @@ CREATE TABLE studenttestinfo (
   completed SMALLINT DEFAULT 0,
   uid BIGINT NOT NULL
 );
-
--- --------------------------------------------------------
-
---
--- Table structure for table "teachers"
---
 
 CREATE TABLE teachers (
   tid BIGSERIAL PRIMARY KEY,
@@ -194,12 +134,6 @@ CREATE TABLE teachers (
   uid BIGINT NOT NULL
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table "users"
---
-
 CREATE TABLE users (
   uid BIGSERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
@@ -212,12 +146,6 @@ CREATE TABLE users (
   examcredits INTEGER NOT NULL DEFAULT 7
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table "window_estimation_log"
---
-
 CREATE TABLE window_estimation_log (
   wid BIGSERIAL PRIMARY KEY,
   email VARCHAR(100) NOT NULL,
@@ -228,58 +156,24 @@ CREATE TABLE window_estimation_log (
   uid BIGINT NOT NULL
 );
 
--- Trigger to replicate ON UPDATE CURRENT_TIMESTAMP for window_estimation_log
 CREATE TRIGGER trg_window_estimation_log_timestamp
   BEFORE UPDATE ON window_estimation_log
   FOR EACH ROW
   EXECUTE FUNCTION update_transaction_log();
 
--- --------------------------------------------------------
-
---
--- Indexes for dumped tables
---
-
--- Indexes for table "longqa"
 CREATE INDEX idx_longqa_uid ON longqa (uid);
-
--- Indexes for table "longtest"
 CREATE INDEX idx_longtest_uid ON longtest (uid);
-
--- Indexes for table "practicalqa"
 CREATE INDEX idx_practicalqa_uid ON practicalqa (uid);
-
--- Indexes for table "practicaltest"
 CREATE INDEX idx_practicaltest_uid ON practicaltest (uid);
-
--- Indexes for table "proctoring_log"
 CREATE INDEX proctor_email_index ON proctoring_log (email);
 CREATE INDEX proctor_email_test_id_index ON proctoring_log (email, test_id);
 CREATE INDEX idx_proctoring_log_uid ON proctoring_log (uid);
-
--- Indexes for table "questions"
 CREATE INDEX idx_questions_uid ON questions (uid);
-
--- Indexes for table "students"
 CREATE INDEX idx_students_uid ON students (uid);
-
--- Indexes for table "studenttestinfo"
 CREATE INDEX idx_studenttestinfo_uid ON studenttestinfo (uid);
-
--- Indexes for table "teachers"
 CREATE INDEX idx_teachers_uid ON teachers (uid);
-
--- Indexes for table "users"
 CREATE UNIQUE INDEX idx_users_email ON users (email);
-
--- Indexes for table "window_estimation_log"
 CREATE INDEX idx_window_estimation_log_uid ON window_estimation_log (uid);
-
--- --------------------------------------------------------
-
---
--- Foreign key constraints
---
 
 ALTER TABLE longqa
   ADD CONSTRAINT longqa_ibfk_1 FOREIGN KEY (uid) REFERENCES users (uid);

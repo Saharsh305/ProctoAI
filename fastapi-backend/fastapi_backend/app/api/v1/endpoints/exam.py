@@ -1,12 +1,8 @@
 from typing import Dict
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
-from app import crud
-from app.schemas.teacher import TeacherCreate, TeacherOut
 from app.core.security import require_admin, require_student, get_current_user
 
 router = APIRouter(prefix="/exam", tags=["exam"])
@@ -30,7 +26,6 @@ class ExamOut(BaseModel):
 def create_exam(
     payload: ExamCreate,
     current_user: Dict = Depends(require_admin),
-    db: Session = Depends(get_db),
 ):
     """Create a new exam. Requires admin role."""
     return ExamOut(
@@ -43,7 +38,6 @@ def create_exam(
 @router.get("/list")
 def list_exams(
     current_user: Dict = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """List all exams. Accessible by authenticated users."""
     return {"message": "Exam list", "user": current_user.get("email")}

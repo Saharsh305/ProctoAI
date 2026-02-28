@@ -1,3 +1,4 @@
+from app.models.role import Role
 from app.models.user import User
 from app.models.teacher import Teacher
 from app.models.question import Question
@@ -11,6 +12,7 @@ from app.models.practicalqa import PracticalQA
 from app.models.practicaltest import PracticalTest
 
 __all__ = [
+    "Role",
     "User",
     "Teacher",
     "Question",

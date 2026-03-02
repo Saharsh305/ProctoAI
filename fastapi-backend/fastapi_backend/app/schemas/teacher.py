@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr
 
@@ -16,7 +17,7 @@ class TeacherBase(BaseModel):
     neg_marks: int
     calc: int
     proctoring_type: int = 0
-    uid: int
+    uid: uuid.UUID
 
 
 class TeacherCreate(TeacherBase):

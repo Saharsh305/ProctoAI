@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
@@ -13,7 +14,7 @@ class ProctoringLogBase(BaseModel):
     user_movements_eyes: int
     phone_detection: int
     person_status: int
-    uid: int
+    uid: uuid.UUID
 
 
 class ProctoringLogCreate(ProctoringLogBase):

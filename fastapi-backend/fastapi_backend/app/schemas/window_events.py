@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict
 
@@ -7,7 +8,7 @@ class WindowEventBase(BaseModel):
     test_id: str
     name: str
     window_event: int
-    uid: int
+    uid: uuid.UUID
 
 
 class WindowEventCreate(WindowEventBase):

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+import uuid
+
+from sqlalchemy import ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -15,5 +17,5 @@ class LongQA(Base):
     q: Mapped[str] = mapped_column(Text, nullable=False)
     marks: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
-    uid: Mapped[int | None] = mapped_column(ForeignKey("users.uid"), nullable=True, index=True)
+    uid: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.userId"), nullable=True, index=True)
     user = relationship("User", back_populates="longqas")

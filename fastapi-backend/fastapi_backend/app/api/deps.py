@@ -1,3 +1,4 @@
+import uuid
 from typing import Generator
 
 from fastapi import Depends, HTTPException, status
@@ -32,15 +33,15 @@ def get_current_user(
     )
     try:
         payload = decode_access_token(token)
-        uid_str: str | None = payload.get("sub")
-        if uid_str is None:
+        user_id_str: str | None = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
     from app import crud  # local import to avoid circular dependency
 
-    user = crud.get_user_by_id(db, int(uid_str))
+    user = crud.get_user_by_id(db, uuid.UUID(user_id_str))
     if user is None:
         raise credentials_exception
     return user
@@ -50,7 +51,7 @@ def require_role(*roles: str):
     """Dependency factory that restricts access to users with given roles."""
 
     def _check(current_user: User = Depends(get_current_user)) -> User:
-        if current_user.user_type not in roles:
+        if current_user.role.value not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Operation not permitted for your role",
@@ -58,4 +59,8 @@ def require_role(*roles: str):
         return current_user
 
     return _check
+
+
+require_admin = require_role("admin")
+require_student = require_role("student")
 

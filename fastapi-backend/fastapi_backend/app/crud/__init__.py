@@ -3,6 +3,7 @@ from app.crud.teacher import get_by_id as get_teacher_by_id, list_teachers, crea
 from app.crud.question import get_by_id as get_question_by_id, list_questions, create as create_question
 from app.crud.proctoring import create as create_proctoring_log, list_logs
 from app.crud.window_events import create as create_window_event, list_events
+from app.crud.exam import create as create_exam
 
 __all__ = [
     "get_user_by_id",
@@ -21,4 +22,5 @@ __all__ = [
     "list_logs",
     "create_window_event",
     "list_events",
+    "create_exam",
 ]

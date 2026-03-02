@@ -1,16 +1,17 @@
 """Tests for the auth module: signup, login, JWT-protected routes, and RBAC."""
 import pytest
+from datetime import datetime, timezone
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-TEACHER_PAYLOAD = {
-    "name": "Alice Teacher",
+ADMIN_PAYLOAD = {
+    "name": "Alice Admin",
     "email": "alice@example.com",
     "password": "secret123",
-    "user_type": "teacher",
+    "role": "admin",
     "user_image": "",
     "user_login": 0,
 }
@@ -19,9 +20,17 @@ STUDENT_PAYLOAD = {
     "name": "Bob Student",
     "email": "bob@example.com",
     "password": "secret456",
-    "user_type": "student",
+    "role": "student",
     "user_image": "",
     "user_login": 0,
+}
+
+EXAM_PAYLOAD = {
+    "title": "Test Exam",
+    "duration": 60,
+    "startTime": "2030-01-01T10:00:00",
+    "rules": "No cheating",
+    "status": "draft",
 }
 
 
@@ -44,22 +53,23 @@ def _auth_header(token):
 
 class TestSignup:
     def test_signup_success(self, client):
-        resp = _signup(client, TEACHER_PAYLOAD)
+        resp = _signup(client, ADMIN_PAYLOAD)
         assert resp.status_code == 201
         data = resp.json()
-        assert data["email"] == TEACHER_PAYLOAD["email"]
-        assert data["user_type"] == "teacher"
-        assert "uid" in data
+        assert data["email"] == ADMIN_PAYLOAD["email"]
+        assert data["role"] == "admin"
+        assert "userId" in data
         # Password must NOT be returned
         assert "password" not in data
+        assert "password_hash" not in data
 
     def test_signup_duplicate_email(self, client):
-        _signup(client, TEACHER_PAYLOAD)
-        resp = _signup(client, TEACHER_PAYLOAD)
+        _signup(client, ADMIN_PAYLOAD)
+        resp = _signup(client, ADMIN_PAYLOAD)
         assert resp.status_code == 409
 
     def test_signup_invalid_email(self, client):
-        bad = {**TEACHER_PAYLOAD, "email": "not-an-email"}
+        bad = {**ADMIN_PAYLOAD, "email": "not-an-email"}
         resp = _signup(client, bad)
         assert resp.status_code == 422
 
@@ -114,14 +124,16 @@ class TestJWTProtection:
 
     def test_valid_token_accepted(self, client):
         """A valid JWT lets us reach the /auth/me endpoint."""
-        _signup(client, TEACHER_PAYLOAD)
-        login_resp = _login(client, TEACHER_PAYLOAD["email"], TEACHER_PAYLOAD["password"])
+        _signup(client, ADMIN_PAYLOAD)
+        login_resp = _login(client, ADMIN_PAYLOAD["email"], ADMIN_PAYLOAD["password"])
         token = login_resp.json()["access_token"]
 
         resp = client.get("/api/v1/auth/me", headers=_auth_header(token))
         assert resp.status_code == 200
         data = resp.json()
-        assert data["email"] == TEACHER_PAYLOAD["email"]
+        assert data["email"] == ADMIN_PAYLOAD["email"]
+        assert "userId" in data
+        assert "created_at" in data
 
 
 # ---------------------------------------------------------------------------
@@ -135,14 +147,14 @@ class TestRBAC:
         resp = _login(client, payload["email"], payload["password"])
         return resp.json()["access_token"]
 
-    def test_teacher_can_access_teacher_only_route(self, client):
-        token = self._get_token(client, TEACHER_PAYLOAD)
-        resp = client.get("/api/v1/auth/teacher-only", headers=_auth_header(token))
+    def test_admin_can_access_admin_only_route(self, client):
+        token = self._get_token(client, ADMIN_PAYLOAD)
+        resp = client.get("/api/v1/auth/admin-only", headers=_auth_header(token))
         assert resp.status_code == 200
 
-    def test_student_cannot_access_teacher_only_route(self, client):
+    def test_student_cannot_access_admin_only_route(self, client):
         token = self._get_token(client, STUDENT_PAYLOAD)
-        resp = client.get("/api/v1/auth/teacher-only", headers=_auth_header(token))
+        resp = client.get("/api/v1/auth/admin-only", headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_student_can_access_student_only_route(self, client):
@@ -150,11 +162,44 @@ class TestRBAC:
         resp = client.get("/api/v1/auth/student-only", headers=_auth_header(token))
         assert resp.status_code == 200
 
-    def test_teacher_cannot_access_student_only_route(self, client):
-        token = self._get_token(client, TEACHER_PAYLOAD)
+    def test_admin_cannot_access_student_only_route(self, client):
+        token = self._get_token(client, ADMIN_PAYLOAD)
         resp = client.get("/api/v1/auth/student-only", headers=_auth_header(token))
         assert resp.status_code == 403
 
     def test_unauthenticated_cannot_access_role_route(self, client):
-        resp = client.get("/api/v1/auth/teacher-only")
+        resp = client.get("/api/v1/auth/admin-only")
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Exam endpoint RBAC tests
+# ---------------------------------------------------------------------------
+
+
+class TestExamRBAC:
+    def _get_token(self, client, payload):
+        _signup(client, payload)
+        resp = _login(client, payload["email"], payload["password"])
+        return resp.json()["access_token"]
+
+    def test_admin_can_create_exam(self, client):
+        token = self._get_token(client, ADMIN_PAYLOAD)
+        resp = client.post(
+            "/api/v1/exam/create",
+            json=EXAM_PAYLOAD,
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["title"] == EXAM_PAYLOAD["title"]
+        assert "examId" in data
+
+    def test_student_cannot_create_exam(self, client):
+        token = self._get_token(client, STUDENT_PAYLOAD)
+        resp = client.post(
+            "/api/v1/exam/create",
+            json=EXAM_PAYLOAD,
+            headers=_auth_header(token),
+        )
+        assert resp.status_code == 403

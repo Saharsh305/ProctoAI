@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+import uuid
+
+from sqlalchemy import ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -20,5 +22,5 @@ class Question(Base):
     ans: Mapped[str] = mapped_column(String(10), nullable=False)
     marks: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    uid: Mapped[int] = mapped_column(ForeignKey("users.uid"), nullable=False, index=True)
+    uid: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.userId"), nullable=False, index=True)
     user = relationship("User", back_populates="questions")

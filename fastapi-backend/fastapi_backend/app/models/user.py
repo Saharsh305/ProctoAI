@@ -1,23 +1,26 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy import DateTime, Enum, Integer, String, Text, func
+from sqlalchemy import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.models.enums import RoleEnum
 
 
 class User(Base):
     __tablename__ = "users"
 
-    uid: Mapped[int] = mapped_column(primary_key=True)
+    userId: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
-    password: Mapped[str] = mapped_column(String(100), nullable=False)
-    register_time: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-    user_type: Mapped[str] = mapped_column(String(25), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    role: Mapped[RoleEnum] = mapped_column(Enum(RoleEnum), nullable=False)
     user_image: Mapped[str] = mapped_column(Text, nullable=False)
     user_login: Mapped[int] = mapped_column(Integer, nullable=False)
     examcredits: Mapped[int] = mapped_column(Integer, server_default="7", nullable=False)
@@ -32,3 +35,4 @@ class User(Base):
     longtests: Mapped[List["LongTest"]] = relationship(back_populates="user")
     practicalqas: Mapped[List["PracticalQA"]] = relationship(back_populates="user")
     practicaltests: Mapped[List["PracticalTest"]] = relationship(back_populates="user")
+

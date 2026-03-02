@@ -1,11 +1,14 @@
+import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr
+
+from app.models.enums import RoleEnum
 
 
 class UserBase(BaseModel):
     name: str
     email: EmailStr
-    user_type: str
+    role: RoleEnum
     user_image: str
     user_login: int
 
@@ -17,7 +20,7 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     name: str | None = None
     password: str | None = None
-    user_type: str | None = None
+    role: RoleEnum | None = None
     user_image: str | None = None
     user_login: int | None = None
     examcredits: int | None = None
@@ -26,6 +29,6 @@ class UserUpdate(BaseModel):
 class UserOut(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
-    uid: int
-    register_time: datetime
+    userId: uuid.UUID
+    created_at: datetime
     examcredits: int

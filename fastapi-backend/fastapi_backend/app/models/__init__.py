@@ -9,6 +9,7 @@ from app.models.longqa import LongQA
 from app.models.longtest import LongTest
 from app.models.practicalqa import PracticalQA
 from app.models.practicaltest import PracticalTest
+from app.models.exam import Exam
 
 __all__ = [
     "User",
@@ -22,4 +23,5 @@ __all__ = [
     "LongTest",
     "PracticalQA",
     "PracticalTest",
+    "Exam",
 ]

@@ -1,3 +1,4 @@
+import uuid
 from pydantic import BaseModel, ConfigDict
 
 
@@ -11,7 +12,7 @@ class QuestionBase(BaseModel):
     d: str
     ans: str
     marks: int
-    uid: int
+    uid: uuid.UUID
 
 
 class QuestionCreate(QuestionBase):

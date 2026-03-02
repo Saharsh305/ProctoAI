@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, String, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,5 +27,5 @@ class Teacher(Base):
     calc: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     proctoring_type: Mapped[int] = mapped_column(SmallInteger, server_default="0", nullable=False)
 
-    uid: Mapped[int] = mapped_column(ForeignKey("users.uid"), nullable=False, index=True)
+    uid: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.userId"), nullable=False, index=True)
     user = relationship("User", back_populates="teachers")

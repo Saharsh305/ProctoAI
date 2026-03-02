@@ -29,7 +29,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = create_access_token({"sub": str(user.uid), "role": user.user_type})
+    token = create_access_token({"sub": str(user.userId), "role": user.role.value})
     return TokenResponse(access_token=token)
 
 
@@ -39,9 +39,9 @@ def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/teacher-only", response_model=UserOut)
-def teacher_only(current_user: User = Depends(require_role("teacher"))):
-    """Example endpoint restricted to users with the 'teacher' role."""
+@router.get("/admin-only", response_model=UserOut)
+def admin_only(current_user: User = Depends(require_role("admin"))):
+    """Example endpoint restricted to users with the 'admin' role."""
     return current_user
 
 

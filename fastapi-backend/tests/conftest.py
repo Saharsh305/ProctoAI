@@ -38,6 +38,19 @@ def create_tables():
     Base.metadata.drop_all(bind=engine)
 
 
+@pytest.fixture(autouse=True)
+def clear_tables():
+    """Clear all tables before each test for isolation."""
+    # Import models to ensure they're registered
+    import app.models  # noqa: F401
+
+    # Clear all tables before each test
+    with engine.begin() as conn:
+        for table in reversed(Base.metadata.sorted_tables):
+            conn.execute(table.delete())
+    yield
+
+
 @pytest.fixture()
 def client():
     """Return a TestClient with DB overridden to use SQLite in-memory."""

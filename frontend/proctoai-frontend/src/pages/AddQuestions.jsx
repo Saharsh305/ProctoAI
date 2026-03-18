@@ -26,7 +26,6 @@ const AddQuestions = () => {
     d: '',
     ans: 'A',
     marks: '1',
-    test_id: examId || '',
   });
 
   useEffect(() => {
@@ -44,7 +43,6 @@ const AddQuestions = () => {
       setExam(examData);
       setQuestions(questionsData);
       setCurrentUser(userData);
-      setForm((prev) => ({ ...prev, test_id: examId }));
     } catch (err) {
       addToast(err.message || 'Failed to load exam data', 'error');
     } finally {
@@ -80,7 +78,7 @@ const AddQuestions = () => {
       await examsAPI.addQuestion(examId, {
         ...form,
         marks: Number(form.marks),
-        uid: currentUser.user_id,
+        uid: currentUser.userId,
         examId,
       });
       addToast('Question added successfully!', 'success');
@@ -93,7 +91,6 @@ const AddQuestions = () => {
         d: '',
         ans: 'A',
         marks: '1',
-        test_id: examId,
       });
       await loadData(); // Reload questions
     } catch (err) {

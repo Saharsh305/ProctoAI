@@ -117,9 +117,9 @@ class TestExamCreation:
         assert resp.status_code == 403
 
     def test_unauthenticated_cannot_create_exam(self, client):
-        """Unauthenticated requests must be rejected with 401."""
+        """Unauthenticated requests must be rejected with 403."""
         resp = client.post("/api/v1/exam/create", json=VALID_EXAM)
-        assert resp.status_code == 401
+        assert resp.status_code == 403
 
     def test_create_exam_missing_title(self, client):
         """Missing required field 'title' should return 422."""
@@ -263,7 +263,7 @@ class TestExamQuestions:
         """Admin can add a question to an exam."""
         admin_token = _get_admin_token(client)
         admin_resp = client.get("/api/v1/auth/me", headers=_auth_header(admin_token))
-        admin_user_id = admin_resp.json()["user_id"]
+        admin_user_id = admin_resp.json()["userId"]
 
         # Create exam
         create_resp = _create_exam(client, admin_token)
@@ -271,7 +271,6 @@ class TestExamQuestions:
 
         # Add question
         question_data = {
-            "test_id": exam_id,
             "qid": "Q1",
             "q": "What is 2+2?",
             "a": "3",
@@ -281,6 +280,7 @@ class TestExamQuestions:
             "ans": "B",
             "marks": 1,
             "uid": admin_user_id,
+            "examId": exam_id,
         }
         resp = client.post(
             f"/api/v1/exam/{exam_id}/questions",
@@ -297,7 +297,7 @@ class TestExamQuestions:
         """Can list questions for a specific exam."""
         admin_token = _get_admin_token(client)
         admin_resp = client.get("/api/v1/auth/me", headers=_auth_header(admin_token))
-        admin_user_id = admin_resp.json()["user_id"]
+        admin_user_id = admin_resp.json()["userId"]
 
         # Create exam
         create_resp = _create_exam(client, admin_token)
@@ -306,13 +306,13 @@ class TestExamQuestions:
         # Add two questions
         for i in range(1, 3):
             question_data = {
-                "test_id": exam_id,
                 "qid": f"Q{i}",
                 "q": f"Question {i}",
                 "a": "A", "b": "B", "c": "C", "d": "D",
                 "ans": "A",
                 "marks": 1,
                 "uid": admin_user_id,
+                "examId": exam_id,
             }
             client.post(
                 f"/api/v1/exam/{exam_id}/questions",
@@ -334,7 +334,7 @@ class TestExamQuestions:
         admin_token = _get_admin_token(client)
         student_token = _get_student_token(client)
         student_resp = client.get("/api/v1/auth/me", headers=_auth_header(student_token))
-        student_user_id = student_resp.json()["user_id"]
+        student_user_id = student_resp.json()["userId"]
 
         # Admin creates exam
         create_resp = _create_exam(client, admin_token)
@@ -342,13 +342,13 @@ class TestExamQuestions:
 
         # Student tries to add question
         question_data = {
-            "test_id": exam_id,
             "qid": "Q1",
             "q": "Question",
             "a": "A", "b": "B", "c": "C", "d": "D",
             "ans": "A",
             "marks": 1,
             "uid": student_user_id,
+            "examId": exam_id,
         }
         resp = client.post(
             f"/api/v1/exam/{exam_id}/questions",
@@ -366,7 +366,7 @@ class TestExamSubmission:
         admin_token = _get_admin_token(client)
         student_token = _get_student_token(client)
         admin_resp = client.get("/api/v1/auth/me", headers=_auth_header(admin_token))
-        admin_user_id = admin_resp.json()["user_id"]
+        admin_user_id = admin_resp.json()["userId"]
 
         # Admin creates exam with questions
         create_resp = _create_exam(client, admin_token, {**VALID_EXAM, "status": "active"})
@@ -374,13 +374,13 @@ class TestExamSubmission:
 
         # Add a question
         question_data = {
-            "test_id": exam_id,
             "qid": "Q1",
             "q": "What is 2+2?",
             "a": "3", "b": "4", "c": "5", "d": "6",
             "ans": "B",
             "marks": 1,
             "uid": admin_user_id,
+            "examId": exam_id,
         }
         client.post(
             f"/api/v1/exam/{exam_id}/questions",

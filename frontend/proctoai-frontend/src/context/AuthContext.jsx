@@ -1,43 +1,44 @@
-import React, { useState, useEffect } from 'react';
-import { AuthContext } from './auth-context-value';
-import { getMe } from '../services/api';
+import { createContext, useState, useEffect } from 'react';
+import { authAPI } from '../services/api';
+
+const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(!!localStorage.getItem('token'));
+  const [loading, setLoading] = useState(() => !!localStorage.getItem('token'));
 
   useEffect(() => {
+    const token = localStorage.getItem('token');
     if (!token) return;
-    let active = true;
-    getMe(token)
-      .then((u) => { if (active) { setUser(u); setLoading(false); } })
-      .catch(() => {
-        if (active) {
-          localStorage.removeItem('token');
-          setToken(null);
-          setLoading(false);
-        }
-      });
-    return () => { active = false; };
-  }, [token]);
+    authAPI
+      .me()
+      .then((u) => setUser(u))
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setLoading(false));
+  }, []);
 
-  const loginUser = (accessToken) => {
-    localStorage.setItem('token', accessToken);
-    setLoading(true);
-    setToken(accessToken);
+  const login = async (email, password) => {
+    const data = await authAPI.login(email, password);
+    localStorage.setItem('token', data.access_token);
+    const me = await authAPI.me();
+    setUser(me);
+    return me;
   };
 
-  const logoutUser = () => {
+  const signup = async (userData) => {
+    return authAPI.signup(userData);
+  };
+
+  const logout = () => {
     localStorage.removeItem('token');
-    setToken(null);
     setUser(null);
-    setLoading(false);
   };
 
   return (
-    <AuthContext.Provider value={{ token, user, loading, loginUser, logoutUser }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;

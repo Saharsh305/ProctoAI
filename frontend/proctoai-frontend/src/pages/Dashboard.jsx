@@ -1,160 +1,177 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/useAuth';
-import { listQuestions, listTeachers, listProctoringLogs } from '../services/api';
-import MainLayout from '../components/layout/MainLayout';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import useAuth from '../hooks/useAuth';
+import Navbar from '../components/Navbar';
+import Sidebar from '../components/Sidebar';
+import { examsAPI } from '../services/api';
 
-const StatCard = ({ icon, label, value, color = 'primary' }) => (
-  <div className="col-12 col-md-4 mb-4">
-    <div className="card border-light shadow-soft">
-      <div className="card-body d-flex align-items-center">
-        <div className={`icon icon-${color} mr-3`}>
-          <span className={`fas ${icon}`}></span>
-        </div>
-        <div>
-          <p className="text-muted font-small mb-0">{label}</p>
-          <h3 className="h4 mb-0">{value}</h3>
-        </div>
-      </div>
-    </div>
+const StatCard = ({ label, value, icon, colorClass, delay = 0 }) => (
+  <div className="stat-card" style={{ animationDelay: `${delay}ms` }}>
+    <div className={`stat-icon ${colorClass}`}>{icon}</div>
+    <div className="stat-value">{value}</div>
+    <div className="stat-label">{label}</div>
   </div>
 );
 
 const Dashboard = () => {
-  const { user, token, logoutUser, loading } = useAuth();
-  const navigate = useNavigate();
-  const [stats, setStats] = useState({ questions: null, tests: null, logs: null });
-  const [statsError, setStatsError] = useState('');
+  const { user } = useAuth();
+
+  const [exams, setExams] = useState([]);
+  const [loading, setLoading] = useState(user?.role === 'admin');
 
   useEffect(() => {
-    if (!loading && !token) {
-      navigate('/signin');
-    }
-  }, [loading, token, navigate]);
+    if (user?.role !== 'admin') return;
+    examsAPI.list()
+      .then(setExams)
+      .finally(() => setLoading(false));
+  }, [user]);
 
-  useEffect(() => {
-    if (!token) return;
-    Promise.allSettled([
-      listQuestions(token),
-      listTeachers(token),
-      listProctoringLogs(token),
-    ]).then(([q, t, l]) => {
-      setStats({
-        questions: q.status === 'fulfilled' ? q.value.length : 'N/A',
-        tests: t.status === 'fulfilled' ? t.value.length : 'N/A',
-        logs: l.status === 'fulfilled' ? l.value.length : 'N/A',
-      });
-    }).catch(() => setStatsError('Could not load stats'));
-  }, [token]);
-
-  if (loading) {
-    return (
-      <MainLayout>
-        <section className="section">
-          <div className="container text-center">
-            <p>Loading…</p>
-          </div>
-        </section>
-      </MainLayout>
-    );
-  }
-
-  if (!user) return null;
+  const initials = user?.name
+    ? user.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+    : '?';
 
   return (
-    <MainLayout>
-      <section className="section-header bg-primary text-white pb-11">
-        <div className="container">
-          <div className="row align-items-center justify-content-between">
-            <div className="col-12 col-md-8">
-              <h1 className="display-2 mb-3">Welcome back, {user.name}!</h1>
-              <p className="lead mb-0">
-                Role: <span className="font-weight-bold">{user.role}</span> &nbsp;|&nbsp;
-                Exam Credits: <span className="font-weight-bold">{user.examcredits}</span>
-              </p>
-            </div>
-            <div className="col-12 col-md-4 text-md-right mt-4 mt-md-0">
-              <button className="btn btn-outline-soft" onClick={logoutUser}>
-                <span className="fas fa-sign-out-alt mr-2"></span>Sign out
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="section mt-n9">
-        <div className="container">
-          {statsError && (
-            <div className="mb-4 p-3 rounded" style={{ background: '#fff3cd', color: '#856404', border: '1px solid #ffeeba' }}>
-              {statsError}
-            </div>
-          )}
-          <div className="row">
-            <StatCard icon="fa-question-circle" label="Questions" value={stats.questions ?? '…'} color="primary" />
-            <StatCard icon="fa-clipboard-list" label="Tests" value={stats.tests ?? '…'} color="secondary" />
-            <StatCard icon="fa-eye" label="Proctoring Logs" value={stats.logs ?? '…'} color="dark" />
-          </div>
-
-          <div className="row mt-4">
-            <div className="col-12 col-md-6 mb-4">
-              <div className="card border-light shadow-soft">
-                <div className="card-header bg-white">
-                  <h2 className="h5 mb-0">Account Details</h2>
+    <div>
+      <Navbar />
+      <div className="layout">
+        <Sidebar />
+        <main className="main-content">
+          <div className="dashboard-wrapper">
+            {/* Welcome card */}
+            <div className="welcome-card">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{
+                  width: 52,
+                  height: 52,
+                  borderRadius: '50%',
+                  background: 'rgba(255,255,255,0.25)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.25rem',
+                  fontWeight: 800,
+                  flexShrink: 0,
+                }}>
+                  {initials}
                 </div>
-                <div className="card-body">
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <tbody>
-                      {[
-                        ['User ID', user.user_id],
-                        ['Name', user.name],
-                        ['Email', user.email],
-                        ['Role', user.role],
-                        ['Exam Credits', user.examcredits],
-                        ['Member since', new Date(user.created_at).toLocaleDateString()],
-                      ].map(([label, value]) => (
-                        <tr key={label} style={{ borderBottom: '1px solid #e3e6f0' }}>
-                          <td style={{ padding: '0.625rem', fontWeight: 600, width: '40%', color: '#8898aa' }}>{label}</td>
-                          <td style={{ padding: '0.625rem', wordBreak: 'break-all' }}>{value}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div>
+                  <h2>Welcome back, {user?.name || 'User'}!</h2>
+                  <p>
+                    {user?.role === 'admin'
+                      ? 'Manage exams and questions here.'
+                      : 'View your upcoming exams and take them here.'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="col-12 col-md-6 mb-4">
-              <div className="card border-light shadow-soft">
-                <div className="card-header bg-white">
-                  <h2 className="h5 mb-0">Quick Actions</h2>
+            {user?.role === 'admin' ? (
+              <>
+                {/* Admin stats */}
+                <div className="page-header">
+                  <h1 className="page-title">Overview</h1>
+                  <p className="page-subtitle">Exam management summary</p>
                 </div>
-                <div className="card-body">
-                  <ul className="list-unstyled">
-                    {user.role === 'admin' && (
-                      <li className="mb-3">
-                        <Link to="/exam/create" className="btn btn-primary btn-block">
-                          <span className="fas fa-plus mr-2"></span>Create Exam
-                        </Link>
-                      </li>
-                    )}
-                    <li className="mb-3">
-                      <Link to="/questions" className="btn btn-secondary btn-block">
-                        <span className="fas fa-list mr-2"></span>View Questions
-                      </Link>
-                    </li>
-                    <li className="mb-3">
-                      <Link to="/proctoring" className="btn btn-tertiary btn-block">
-                        <span className="fas fa-eye mr-2"></span>Proctoring Logs
-                      </Link>
-                    </li>
-                  </ul>
+
+                <div className="stats-grid">
+                  <StatCard
+                    label="Total Exams"
+                    value={loading ? '…' : exams.length}
+                    colorClass="stat-icon-primary"
+                    delay={0}
+                    icon={
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    }
+                  />
+                  <StatCard
+                    label="Draft Exams"
+                    value={loading ? '…' : exams.filter(e => e.status === 'DRAFT').length}
+                    colorClass="stat-icon-accent"
+                    delay={80}
+                    icon={
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                      </svg>
+                    }
+                  />
+                  <StatCard
+                    label="Active Exams"
+                    value={loading ? '…' : exams.filter(e => e.status === 'ACTIVE').length}
+                    colorClass="stat-icon-success"
+                    delay={160}
+                    icon={
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="9 11 12 14 22 4" />
+                        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                      </svg>
+                    }
+                  />
                 </div>
-              </div>
-            </div>
+
+                {/* Quick actions */}
+                <div className="page-header" style={{ marginTop: '1rem' }}>
+                  <h2 className="page-title" style={{ fontSize: '1.25rem' }}>Quick Actions</h2>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+                  {[
+                    { to: '/exams', label: 'View All Exams', color: 'var(--primary)', bg: '#ede9fe' },
+                    { to: '/exams/create', label: 'Create Exam', color: '#059669', bg: '#d1fae5' },
+                  ].map((item) => (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      className="card card-no-hover"
+                      style={{ padding: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.875rem', textDecoration: 'none', borderLeftColor: item.color, borderLeftWidth: 3 }}
+                    >
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: item.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: item.color, flexShrink: 0 }}>
+                        →
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text)' }}>{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
+
+              </>
+            ) : (
+              /* Student view */
+              <>
+                <div className="page-header">
+                  <h1 className="page-title">My Dashboard</h1>
+                  <p className="page-subtitle">Your exam overview</p>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+                  <div className="card" style={{ padding: '1.75rem', background: 'linear-gradient(135deg, #ede9fe, #ddd6fe)' }}>
+                    <h3 style={{ fontWeight: 700, marginBottom: '0.5rem', color: 'var(--primary-dark)' }}>Account Info</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 4 }}>
+                      <strong>Name:</strong> {user?.name}
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: 4 }}>
+                      <strong>Email:</strong> {user?.email}
+                    </p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                      <strong>Role:</strong>{' '}
+                      <span className="badge badge-accent">{user?.role}</span>
+                    </p>
+                  </div>
+                  <div className="card" style={{ padding: '1.75rem' }}>
+                    <h3 style={{ fontWeight: 700, marginBottom: '0.75rem' }}>Getting Started</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.7 }}>
+                      Check "My Exams" to view available exams.
+                      Make sure you have a stable internet connection before starting any exam.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      </section>
-    </MainLayout>
+        </main>
+      </div>
+    </div>
   );
 };
 

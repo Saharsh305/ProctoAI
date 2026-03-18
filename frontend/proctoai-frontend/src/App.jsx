@@ -1,25 +1,75 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import AboutCompany from './pages/AboutCompany';
-import Contact from './pages/Contact';
+import ProtectedRoute from './components/ProtectedRoute';
+import Landing from './pages/Landing';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import Dashboard from './pages/Dashboard';
+import CreateExam from './pages/CreateExam';
+import ExamList from './pages/ExamList';
+import AddQuestions from './pages/AddQuestions';
+import StudentExams from './pages/StudentExams';
+import TakeExam from './pages/TakeExam';
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
+      <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AboutCompany />} />
-          <Route path="/about" element={<AboutCompany />} />
-          <Route path="/contact" element={<Contact />} />
+          <Route path="/" element={<Landing />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exams"
+            element={
+              <ProtectedRoute adminOnly>
+                <ExamList />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exams/create"
+            element={
+              <ProtectedRoute adminOnly>
+                <CreateExam />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/exams/:examId/questions"
+            element={
+              <ProtectedRoute adminOnly>
+                <AddQuestions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/exams"
+            element={
+              <ProtectedRoute>
+                <StudentExams />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/exams/:examId/take"
+            element={
+              <ProtectedRoute>
+                <TakeExam />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Router>
+      </BrowserRouter>
     </AuthProvider>
   );
 }

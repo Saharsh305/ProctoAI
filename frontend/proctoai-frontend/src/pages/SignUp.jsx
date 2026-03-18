@@ -1,136 +1,151 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signup } from '../services/api';
-import FormGroup from '../components/ui/forms/FormGroup';
-import Button from '../components/ui/buttons/Button';
+import useAuth from '../hooks/useAuth';
+import LoadingSpinner from '../components/LoadingSpinner';
 
-const ROLES = ['student', 'admin'];
+const MIN_PASSWORD_LENGTH = 6;
+
+const ShieldIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
 
 const SignUp = () => {
+  const { signup } = useAuth();
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
+
+  const [form, setForm] = useState({
     name: '',
     email: '',
     password: '',
     role: 'student',
-    user_image: '',
-    user_login: 0,
   });
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    if (!form.name.trim() || !form.email.trim() || !form.password) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+    if (form.password.length < MIN_PASSWORD_LENGTH) {
+      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      return;
+    }
     setLoading(true);
     try {
-      await signup(formData);
+      await signup({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        role: form.role,
+        user_image: '',
+        user_login: 0,
+      });
       navigate('/signin');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <section className="section-header bg-primary text-white" style={{ minHeight: '100vh', display: 'flex', alignItems: 'center' }}>
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-12 col-md-8 col-lg-6">
-            <div className="card border-0 shadow-soft">
-              <div className="card-header bg-white text-center">
-                <Link to="/" className="d-flex justify-content-center align-items-center mb-3">
-                  <span className="h4 mb-0 font-weight-bold text-primary">ProctoAI</span>
-                </Link>
-                <h1 className="h4 mb-1">Create your account</h1>
-                <p className="text-muted font-small">Start your proctoring journey today.</p>
-              </div>
-              <div className="card-body px-5">
-                {error && (
-                  <div className="mb-3 p-3 rounded" style={{ background: '#fdecea', color: '#c0392b', border: '1px solid #f5c6cb' }}>
-                    {error}
-                  </div>
-                )}
-                <form onSubmit={handleSubmit}>
-                  <FormGroup label="Full Name" htmlFor="name" icon="user">
-                    <input
-                      className="form-control"
-                      placeholder="John Doe"
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                    />
-                  </FormGroup>
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <ShieldIcon />
+          ProctoAI
+        </div>
+        <h1 className="auth-title">Create account</h1>
+        <p className="auth-subtitle">Join ProctoAI and get started today</p>
 
-                  <FormGroup label="Email address" htmlFor="email" icon="at">
-                    <input
-                      className="form-control"
-                      placeholder="example@company.com"
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                    />
-                  </FormGroup>
+        {error && <div className="error-msg">{error}</div>}
 
-                  <FormGroup label="Password" htmlFor="password" icon="lock">
-                    <input
-                      className="form-control"
-                      placeholder="Password"
-                      type="password"
-                      id="password"
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required
-                    />
-                  </FormGroup>
-
-                  <div className="form-group mb-4">
-                    <label className="h6" htmlFor="role">Role</label>
-                    <select
-                      className="form-control"
-                      id="role"
-                      name="role"
-                      value={formData.role}
-                      onChange={handleChange}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r.charAt(0).toUpperCase() + r.slice(1)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Button type="submit" variant="secondary" block disabled={loading}>
-                    {loading ? 'Creating account…' : 'Create account'}
-                  </Button>
-                </form>
-              </div>
-              <div className="card-footer bg-white text-center">
-                <p className="text-muted font-small mb-0">
-                  Already have an account?{' '}
-                  <Link to="/signin" className="font-weight-bold">
-                    Sign in
-                  </Link>
-                </p>
-              </div>
-            </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label" htmlFor="name">Full Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              className="form-control"
+              placeholder="Jane Smith"
+              value={form.name}
+              onChange={handleChange}
+              autoComplete="name"
+              required
+            />
           </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="email">Email address</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              className="form-control"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange}
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              className="form-control"
+              placeholder="••••••••"
+              value={form.password}
+              onChange={handleChange}
+              autoComplete="new-password"
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="role">Role</label>
+            <select
+              id="role"
+              name="role"
+              className="form-control"
+              value={form.role}
+              onChange={handleChange}
+            >
+              <option value="student">Student</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', marginTop: '0.5rem' }}
+            disabled={loading}
+          >
+            {loading ? <LoadingSpinner /> : 'Create Account'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+          Already have an account?{' '}
+          <Link to="/signin">Sign in</Link>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

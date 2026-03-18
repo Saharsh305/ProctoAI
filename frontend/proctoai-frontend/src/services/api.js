@@ -1,74 +1,136 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// When VITE_API_BASE_URL is not set the Vite dev-server proxy forwards /api → http://localhost:8000
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
-const request = async (method, path, body = null, token = null) => {
+const getHeaders = (auth = false) => {
   const headers = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-
-  const options = { method, headers };
-  if (body) options.body = JSON.stringify(body);
-
-  const res = await fetch(`${BASE_URL}${path}`, options);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || `Request failed: ${res.status}`);
-  return data;
+  if (auth) {
+    const token = localStorage.getItem('token');
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
 };
 
-// Auth
-export const login = (email, password) =>
-  request('POST', '/api/v1/auth/login', { email, password });
-
-export const signup = (payload) =>
-  request('POST', '/api/v1/auth/signup', payload);
-
-export const getMe = (token) =>
-  request('GET', '/api/v1/auth/me', null, token);
-
-// Users
-export const listUsers = (token, skip = 0, limit = 100) =>
-  request('GET', `/api/v1/users/?skip=${skip}&limit=${limit}`, null, token);
-
-export const getUser = (token, userId) =>
-  request('GET', `/api/v1/users/${userId}`, null, token);
-
-export const updateUser = (token, userId, payload) =>
-  request('PATCH', `/api/v1/users/${userId}`, payload, token);
-
-// Exams
-export const createExam = (token, payload) =>
-  request('POST', '/api/v1/exam/create', payload, token);
-
-// Questions
-export const listQuestions = (token, skip = 0, limit = 100) =>
-  request('GET', `/api/v1/questions/?skip=${skip}&limit=${limit}`, null, token);
-
-export const createQuestion = (token, payload) =>
-  request('POST', '/api/v1/questions/', payload, token);
-
-// Teachers / Tests
-export const listTeachers = (token, skip = 0, limit = 100) =>
-  request('GET', `/api/v1/teachers/?skip=${skip}&limit=${limit}`, null, token);
-
-export const createTeacher = (token, payload) =>
-  request('POST', '/api/v1/teachers/', payload, token);
-
-// Proctoring logs
-export const listProctoringLogs = (token, { email, testId, skip = 0, limit = 100 } = {}) => {
-  const params = new URLSearchParams({ skip, limit });
-  if (email) params.append('email', email);
-  if (testId) params.append('test_id', testId);
-  return request('GET', `/api/v1/proctoring/logs?${params}`, null, token);
+const handleResponse = async (res) => {
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'An error occurred' }));
+    throw new Error(err.detail || 'Request failed');
+  }
+  return res.json();
 };
 
-export const createProctoringLog = (token, payload) =>
-  request('POST', '/api/v1/proctoring/logs', payload, token);
+export const authAPI = {
+  login: (email, password) =>
+    fetch(`${BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ email, password }),
+    }).then(handleResponse),
 
-// Window events
-export const listWindowEvents = (token, { email, testId, skip = 0, limit = 100 } = {}) => {
-  const params = new URLSearchParams({ skip, limit });
-  if (email) params.append('email', email);
-  if (testId) params.append('test_id', testId);
-  return request('GET', `/api/v1/window-events/?${params}`, null, token);
+  signup: (data) =>
+    fetch(`${BASE_URL}/api/v1/auth/signup`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  me: () =>
+    fetch(`${BASE_URL}/api/v1/auth/me`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
 };
 
-export const createWindowEvent = (token, payload) =>
-  request('POST', '/api/v1/window-events/', payload, token);
+export const usersAPI = {
+  list: (skip = 0, limit = 100) =>
+    fetch(`${BASE_URL}/api/v1/users/?skip=${skip}&limit=${limit}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  get: (id) =>
+    fetch(`${BASE_URL}/api/v1/users/${id}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  create: (data) =>
+    fetch(`${BASE_URL}/api/v1/users/`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  update: (id, data) =>
+    fetch(`${BASE_URL}/api/v1/users/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+};
+
+export const examsAPI = {
+  create: (data) =>
+    fetch(`${BASE_URL}/api/v1/exam/create`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  list: (skip = 0, limit = 100) =>
+    fetch(`${BASE_URL}/api/v1/exam/list?skip=${skip}&limit=${limit}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  get: (examId) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  update: (examId, data) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  delete: (examId) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}`, {
+      method: 'DELETE',
+      headers: getHeaders(true),
+    }),
+
+  getQuestions: (examId, skip = 0, limit = 100) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}/questions?skip=${skip}&limit=${limit}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  addQuestion: (examId, data) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}/questions`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  updateQuestion: (examId, questionId, data) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}/questions/${questionId}`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  deleteQuestion: (examId, questionId) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}/questions/${questionId}`, {
+      method: 'DELETE',
+      headers: getHeaders(true),
+    }),
+
+  submit: (examId, data) =>
+    fetch(`${BASE_URL}/api/v1/exam/${examId}/submit`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+};
+
+export default {
+  authAPI,
+  usersAPI,
+  examsAPI,
+};

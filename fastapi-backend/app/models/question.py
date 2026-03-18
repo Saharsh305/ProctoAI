@@ -12,7 +12,6 @@ class Question(Base):
     __tablename__ = "questions"
 
     questions_uid: Mapped[int] = mapped_column(primary_key=True)
-    test_id: Mapped[str] = mapped_column(String(100), nullable=False)
     examId: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("exams.examId"), nullable=True, index=True)
     qid: Mapped[str] = mapped_column(String(25), nullable=False)
     q: Mapped[str] = mapped_column(Text, nullable=False)

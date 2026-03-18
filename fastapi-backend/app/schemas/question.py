@@ -3,7 +3,6 @@ from pydantic import BaseModel, ConfigDict
 
 
 class QuestionBase(BaseModel):
-    test_id: str
     qid: str
     q: str
     a: str

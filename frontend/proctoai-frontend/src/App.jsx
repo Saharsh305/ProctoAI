@@ -10,6 +10,7 @@ import ExamList from './pages/ExamList';
 import AddQuestions from './pages/AddQuestions';
 import StudentExams from './pages/StudentExams';
 import TakeExam from './pages/TakeExam';
+import ExamReports from './pages/ExamReports';
 
 function App() {
   return (
@@ -64,6 +65,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TakeExam />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ExamReports />
               </ProtectedRoute>
             }
           />

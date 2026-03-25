@@ -5,6 +5,13 @@ from app.crud.student import create_answer, get_student_answers
 from app.crud.proctoring import create as create_proctoring_log, list_logs
 from app.crud.window_events import create as create_window_event, list_events
 from app.crud.violation import create as create_violation, list_violations
+from app.crud.report import (
+    create as create_report,
+    get_by_id as get_report_by_id,
+    get_by_exam_and_email as get_report_by_exam_and_email,
+    list_reports,
+    update_pdf_path,
+)
 
 __all__ = [
     "get_user_by_id",
@@ -32,4 +39,9 @@ __all__ = [
     "list_events",
     "create_violation",
     "list_violations",
+    "create_report",
+    "get_report_by_id",
+    "get_report_by_exam_and_email",
+    "list_reports",
+    "update_pdf_path",
 ]

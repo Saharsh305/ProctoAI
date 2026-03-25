@@ -54,6 +54,9 @@ const Navbar = () => {
             <Link to="/dashboard" className="btn btn-ghost btn-sm">
               Dashboard
             </Link>
+            <Link to="/reports" className="btn btn-ghost btn-sm">
+              Reports
+            </Link>
             <button className="btn btn-outline btn-sm" onClick={handleLogout}>
               Logout
             </button>

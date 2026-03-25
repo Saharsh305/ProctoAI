@@ -11,7 +11,7 @@ import useFaceDetection from '../hooks/useFaceDetection';
 import useTabFocusMonitor from '../hooks/useTabFocusMonitor';
 import useAudioDetection from '../hooks/useAudioDetection';
 import useViolationBuffer from '../hooks/useViolationBuffer';
-import { examsAPI, proctoringAPI } from '../services/api';
+import { examsAPI, proctoringAPI, reportsAPI } from '../services/api';
 
 // ── Proctoring Warning Banner ─────────────────────────
 const WarningBanner = ({ message, type = 'warning', onDismiss }) => {
@@ -336,6 +336,17 @@ const TakeExam = () => {
         examId,
         answers: answersList,
       });
+
+      // Generate proctoring report (Sprint 4 – fire-and-forget, don't block navigation)
+      try {
+        await reportsAPI.generate({
+          test_id: examId,
+          email: user?.email || '',
+          uid: user?.user_id || '',
+        });
+      } catch (reportErr) {
+        console.warn('[Report] Auto-generation failed:', reportErr.message);
+      }
 
       addToast('Exam submitted successfully!', 'success');
       setTimeout(() => {

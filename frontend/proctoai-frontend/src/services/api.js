@@ -203,10 +203,55 @@ export const windowEventsAPI = {
     }).then(handleResponse),
 };
 
+// ── Reports APIs (Sprint 4) ─────────────────────────
+export const reportsAPI = {
+  /** Compute trust score without generating a full report. */
+  getTrustScore: (data) =>
+    fetch(`${BASE_URL}/api/v1/reports/trust-score`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  /** Generate a full proctoring report (trust + PDF). */
+  generate: (data) =>
+    fetch(`${BASE_URL}/api/v1/reports/generate`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  /** List reports with optional filters. */
+  list: (testId = '', email = '') => {
+    const params = new URLSearchParams();
+    if (testId) params.set('test_id', testId);
+    if (email) params.set('email', email);
+    return fetch(`${BASE_URL}/api/v1/reports/?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  /** Get a single report by ID. */
+  get: (reportId) =>
+    fetch(`${BASE_URL}/api/v1/reports/${reportId}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
+  /** Download report PDF (returns blob). */
+  downloadPdf: (reportId) =>
+    fetch(`${BASE_URL}/api/v1/reports/${reportId}/pdf`, {
+      headers: getHeaders(true),
+    }).then((res) => {
+      if (!res.ok) throw new Error('PDF download failed');
+      return res.blob();
+    }),
+};
+
 export default {
   authAPI,
   usersAPI,
   examsAPI,
   proctoringAPI,
   windowEventsAPI,
+  reportsAPI,
 };

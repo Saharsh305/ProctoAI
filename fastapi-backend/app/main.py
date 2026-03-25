@@ -1,12 +1,41 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.api.v1.api import api_router
+from app.services.violation_logger import violation_buffer
+from app.core.storage import ensure_bucket
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup / shutdown lifecycle for background services."""
+    # ── Startup ──
+    # Initialise MinIO bucket (safe if already exists)
+    try:
+        ensure_bucket()
+        logger.info("MinIO bucket ready")
+    except Exception as exc:
+        logger.warning("MinIO bucket init skipped (service may be unavailable): %s", exc)
+
+    # Start the async violation batch-write buffer
+    violation_buffer.start()
+    logger.info("ViolationBuffer background task started")
+
+    yield
+
+    # ── Shutdown ──
+    await violation_buffer.stop()
+    logger.info("ViolationBuffer stopped")
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title=settings.app_name)
+    app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
     origins = settings.cors_origins_list()
     if origins:

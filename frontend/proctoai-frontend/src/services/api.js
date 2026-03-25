@@ -73,8 +73,8 @@ export const examsAPI = {
       body: JSON.stringify(data),
     }).then(handleResponse),
 
-  list: (skip = 0, limit = 100, myExams = false) =>
-    fetch(`${BASE_URL}/api/v1/exam/list?skip=${skip}&limit=${limit}&my_exams=${myExams}`, {
+  list: (skip = 0, limit = 100) =>
+    fetch(`${BASE_URL}/api/v1/exam/list?skip=${skip}&limit=${limit}`, {
       headers: getHeaders(true),
     }).then(handleResponse),
 

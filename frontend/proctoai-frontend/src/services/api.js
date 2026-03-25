@@ -129,8 +129,84 @@ export const examsAPI = {
     }).then(handleResponse),
 };
 
+// ── Proctoring APIs (Sprint 2) ──────────────────────
+export const proctoringAPI = {
+  getLogs: (email = '', testId = '') => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (testId) params.set('test_id', testId);
+    return fetch(`${BASE_URL}/api/v1/proctoring/logs?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  createLog: (data) =>
+    fetch(`${BASE_URL}/api/v1/proctoring/logs`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  logViolation: (data) =>
+    fetch(`${BASE_URL}/api/v1/proctoring/log_violation`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  // ── Sprint 3 additions ──────────────────────────
+
+  /** Send a batch of violations to the async buffer endpoint. */
+  logViolationBatch: (data) =>
+    fetch(`${BASE_URL}/api/v1/proctoring/log_violations_batch`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  /** List violations with optional filters. */
+  listViolations: (email = '', testId = '', violationType = '') => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (testId) params.set('test_id', testId);
+    if (violationType) params.set('violation_type', violationType);
+    return fetch(`${BASE_URL}/api/v1/proctoring/violations?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  /** Get a presigned PUT URL for uploading evidence to MinIO. */
+  getEvidenceUploadUrl: (data) =>
+    fetch(`${BASE_URL}/api/v1/proctoring/evidence/upload-url`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+};
+
+// ── Window Events APIs (Sprint 2) ───────────────────
+export const windowEventsAPI = {
+  list: (email = '', testId = '') => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (testId) params.set('test_id', testId);
+    return fetch(`${BASE_URL}/api/v1/window-events/?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  create: (data) =>
+    fetch(`${BASE_URL}/api/v1/window-events/`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+};
+
 export default {
   authAPI,
   usersAPI,
   examsAPI,
+  proctoringAPI,
+  windowEventsAPI,
 };

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app import crud
-from app.schemas.proctoring import ProctoringLogCreate, ProctoringLogOut
+from app.schemas.proctoring import ProctoringLogCreate, ProctoringLogOut, ViolationCreate, ViolationOut
 
 router = APIRouter(prefix="/proctoring", tags=["proctoring"])
 
@@ -22,3 +22,9 @@ def list_logs(
 @router.post("/logs", response_model=ProctoringLogOut, status_code=201)
 def create_log(payload: ProctoringLogCreate, db: Session = Depends(get_db)):
     return crud.create_proctoring_log(db, payload)
+
+
+@router.post("/log_violation", response_model=ViolationOut, status_code=201)
+def log_violation(payload: ViolationCreate, db: Session = Depends(get_db)):
+    """Lightweight endpoint for the live proctoring engine to log violations quickly."""
+    return crud.create_violation(db, payload)

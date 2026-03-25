@@ -2,6 +2,9 @@ from app.crud.user import get_by_id as get_user_by_id, get_by_email as get_user_
 from app.crud.question import get_by_id as get_question_by_id, list_questions, list_questions_by_exam, create as create_question, update as update_question, delete as delete_question
 from app.crud.exam import create as create_exam, list_exams, get_by_id as get_exam_by_id, update as update_exam, delete as delete_exam
 from app.crud.student import create_answer, get_student_answers
+from app.crud.proctoring import create as create_proctoring_log, list_logs
+from app.crud.window_events import create as create_window_event, list_events
+from app.crud.violation import create as create_violation, list_violations
 
 __all__ = [
     "get_user_by_id",
@@ -23,4 +26,10 @@ __all__ = [
     "delete_exam",
     "create_answer",
     "get_student_answers",
+    "create_proctoring_log",
+    "list_logs",
+    "create_window_event",
+    "list_events",
+    "create_violation",
+    "list_violations",
 ]

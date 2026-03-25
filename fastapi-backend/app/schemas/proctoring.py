@@ -26,3 +26,26 @@ class ProctoringLogOut(ProctoringLogBase):
 
     pid: int
     log_time: datetime
+
+
+# ── Lightweight violation schemas (Sprint 2) ──────────
+
+class ViolationBase(BaseModel):
+    email: str
+    test_id: str
+    violation_type: str          # tab_switch | face_absent | multiple_faces | audio_violation
+    message: str
+    severity: str = "warning"    # info | warning | critical
+    metadata_json: str | None = None
+    uid: uuid.UUID
+
+
+class ViolationCreate(ViolationBase):
+    pass
+
+
+class ViolationOut(ViolationBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    vid: int
+    created_at: datetime

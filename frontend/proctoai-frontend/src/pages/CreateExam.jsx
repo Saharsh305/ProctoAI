@@ -46,7 +46,7 @@ const CreateExam = () => {
         duration: Number(form.duration),
         startTime: form.startTime || null,
         rules: form.rules.trim(),
-        status: form.status,
+        status: form.status.toLowerCase(),
       });
       addToast('Exam created successfully!', 'success');
       setSuccess(true);

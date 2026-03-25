@@ -12,6 +12,12 @@ from app.crud.report import (
     list_reports,
     update_pdf_path,
 )
+from app.crud.admin import (
+    create_action as create_admin_action,
+    list_actions as list_admin_actions,
+    list_violations_with_actions,
+    count_violations,
+)
 
 __all__ = [
     "get_user_by_id",
@@ -44,4 +50,8 @@ __all__ = [
     "get_report_by_exam_and_email",
     "list_reports",
     "update_pdf_path",
+    "create_admin_action",
+    "list_admin_actions",
+    "list_violations_with_actions",
+    "count_violations",
 ]

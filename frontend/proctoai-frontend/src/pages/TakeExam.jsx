@@ -126,6 +126,7 @@ const TakeExam = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [examLocked, setExamLocked] = useState(false);
   const [proctoringReady, setProctoringReady] = useState(false);
   const [violationLog, setViolationLog] = useState([]);
   const timerRef = useRef(null);
@@ -301,6 +302,8 @@ const TakeExam = () => {
   };
 
   const handleAutoSubmit = async () => {
+    // Sprint 5: Lock UI immediately (<100ms) before network call
+    setExamLocked(true);
     addToast('Time is up! Submitting your exam...', 'info');
     await submitExam();
   };
@@ -387,6 +390,32 @@ const TakeExam = () => {
   return (
     <div>
       <Navbar />
+
+      {/* ── Sprint 5: Exam lock overlay (auto-submit) ── */}
+      {examLocked && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0, 0, 0, 0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+          }}
+        >
+          <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⏱️</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+            Time&apos;s Up!
+          </h2>
+          <p style={{ fontSize: '1rem', opacity: 0.85, marginBottom: '1.5rem' }}>
+            Your exam is being submitted automatically…
+          </p>
+          <LoadingSpinner />
+        </div>
+      )}
 
       {/* ── Tab-switch warning banner ──────────────── */}
       {tabWarningVisible && (
@@ -504,7 +533,7 @@ const TakeExam = () => {
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || examLocked}
                   style={{ minWidth: 140 }}
                 >
                   {submitting ? <LoadingSpinner /> : 'Submit Exam'}

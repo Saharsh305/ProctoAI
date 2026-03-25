@@ -11,6 +11,7 @@ import AddQuestions from './pages/AddQuestions';
 import StudentExams from './pages/StudentExams';
 import TakeExam from './pages/TakeExam';
 import ExamReports from './pages/ExamReports';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
@@ -65,6 +66,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <TakeExam />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/violations"
+            element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

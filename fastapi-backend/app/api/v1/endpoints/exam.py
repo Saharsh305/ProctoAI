@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -113,7 +114,8 @@ def submit_exam(
 
     return ExamSubmissionResponse(
         message="Exam submitted successfully",
-        submitted_count=submitted_count
+        submitted_count=submitted_count,
+        server_confirmed_at=datetime.now(timezone.utc),
     )
 
 

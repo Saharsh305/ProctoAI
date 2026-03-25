@@ -1,5 +1,5 @@
 // When VITE_API_BASE_URL is not set the Vite dev-server proxy forwards /api → http://localhost:8000
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const BASE_URL = 'http://localhost:8000';
 
 const getHeaders = (auth = false) => {
   const headers = { 'Content-Type': 'application/json' };
@@ -247,6 +247,48 @@ export const reportsAPI = {
     }),
 };
 
+// ── Admin APIs (Sprint 5) ───────────────────────────
+export const adminAPI = {
+  /** List violations with actions (admin-only, enriched view). */
+  listViolations: (email = '', testId = '', violationType = '', severity = '') => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (testId) params.set('test_id', testId);
+    if (violationType) params.set('violation_type', violationType);
+    if (severity) params.set('severity', severity);
+    return fetch(`${BASE_URL}/api/v1/admin/violations?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  /** Get total violation count for dashboard stats. */
+  countViolations: (email = '', testId = '') => {
+    const params = new URLSearchParams();
+    if (email) params.set('email', email);
+    if (testId) params.set('test_id', testId);
+    return fetch(`${BASE_URL}/api/v1/admin/violations/count?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  /** Perform an admin action (warn / invalidate / ban) on a violation. */
+  performAction: (data) =>
+    fetch(`${BASE_URL}/api/v1/admin/actions`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  /** List admin action audit log. */
+  listActions: (violationId = '') => {
+    const params = new URLSearchParams();
+    if (violationId) params.set('violation_id', violationId);
+    return fetch(`${BASE_URL}/api/v1/admin/actions?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+};
+
 export default {
   authAPI,
   usersAPI,
@@ -254,4 +296,5 @@ export default {
   proctoringAPI,
   windowEventsAPI,
   reportsAPI,
+  adminAPI,
 };

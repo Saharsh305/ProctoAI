@@ -54,6 +54,11 @@ const Navbar = () => {
             <Link to="/dashboard" className="btn btn-ghost btn-sm">
               Dashboard
             </Link>
+            {user.role === 'admin' && (
+              <Link to="/admin/violations" className="btn btn-ghost btn-sm">
+                Admin
+              </Link>
+            )}
             <Link to="/reports" className="btn btn-ghost btn-sm">
               Reports
             </Link>

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -18,3 +19,4 @@ class ExamSubmissionResponse(BaseModel):
     """Response after exam submission."""
     message: str
     submitted_count: int
+    server_confirmed_at: datetime

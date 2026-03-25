@@ -33,6 +33,7 @@ class User(Base):
     window_logs: Mapped[List["WindowEstimationLog"]] = relationship(back_populates="user")
     violations: Mapped[List["Violation"]] = relationship(back_populates="user")
     exam_reports: Mapped[List["ExamReport"]] = relationship(back_populates="user")
+    admin_actions: Mapped[List["AdminAction"]] = relationship(back_populates="admin_user")
     longqas: Mapped[List["LongQA"]] = relationship(back_populates="user")
     longtests: Mapped[List["LongTest"]] = relationship(back_populates="user")
     practicalqas: Mapped[List["PracticalQA"]] = relationship(back_populates="user")

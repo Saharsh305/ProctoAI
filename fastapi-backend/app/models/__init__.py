@@ -7,6 +7,7 @@ from app.models.proctoring_log import ProctoringLog
 from app.models.window_estimation_log import WindowEstimationLog
 from app.models.violation import Violation
 from app.models.exam_report import ExamReport
+from app.models.admin_action import AdminAction
 from app.models.longqa import LongQA
 from app.models.longtest import LongTest
 from app.models.practicalqa import PracticalQA
@@ -23,6 +24,7 @@ __all__ = [
     "WindowEstimationLog",
     "Violation",
     "ExamReport",
+    "AdminAction",
     "LongQA",
     "LongTest",
     "PracticalQA",

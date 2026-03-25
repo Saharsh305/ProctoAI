@@ -5,13 +5,14 @@ from app.models.exam import Exam
 from app.schemas.exam import ExamCreate, ExamUpdate
 
 
-def create(db: Session, exam_in: ExamCreate) -> Exam:
+def create(db: Session, exam_in: ExamCreate, creator_id: uuid.UUID) -> Exam:
     exam = Exam(
         title=exam_in.title,
         duration=exam_in.duration,
         startTime=exam_in.startTime,
         rules=exam_in.rules,
         status=exam_in.status,
+        createdBy=creator_id,
     )
     db.add(exam)
     db.commit()
@@ -19,9 +20,12 @@ def create(db: Session, exam_in: ExamCreate) -> Exam:
     return exam
 
 
-def list_exams(db: Session, skip: int = 0, limit: int = 100) -> list[Exam]:
-    """List all exams with pagination."""
-    return db.query(Exam).offset(skip).limit(limit).all()
+def list_exams(db: Session, skip: int = 0, limit: int = 100, created_by: uuid.UUID | None = None) -> list[Exam]:
+    """List all exams with pagination. Optionally filter by creator."""
+    query = db.query(Exam)
+    if created_by:
+        query = query.filter(Exam.createdBy == created_by)
+    return query.offset(skip).limit(limit).all()
 
 
 def get_by_id(db: Session, exam_id: uuid.UUID) -> Exam | None:

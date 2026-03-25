@@ -16,6 +16,7 @@ const TakeExam = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [timerStarted, setTimerStarted] = useState(false);
   const timerRef = useRef(null);
 
   useEffect(() => {
@@ -26,12 +27,13 @@ const TakeExam = () => {
   }, [examId]);
 
   useEffect(() => {
-    if (exam && timeLeft === 0) {
+    if (exam && !timerStarted) {
       const durationInSeconds = exam.duration * 60;
       setTimeLeft(durationInSeconds);
       startTimer(durationInSeconds);
+      setTimerStarted(true);
     }
-  }, [exam]);
+  }, [exam, timerStarted]);
 
   const startTimer = (initialTime) => {
     let remaining = initialTime;

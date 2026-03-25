@@ -31,4 +31,3 @@ class ExamOut(BaseModel):
     startTime: datetime
     rules: str
     status: ExamStatus
-    createdBy: uuid.UUID | None = None

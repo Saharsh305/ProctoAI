@@ -19,23 +19,18 @@ def create_exam(
     current_user: User = Depends(require_role("admin")),
 ):
     """Create a new exam. Restricted to admin role only."""
-    return crud.create_exam(db, payload, creator_id=current_user.userId)
+    return crud.create_exam(db, payload)
 
 
 @router.get("/list", response_model=list[ExamOut])
 def list_exams(
     skip: int = 0,
     limit: int = 100,
-    my_exams: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all exams. Accessible to both admin and student.
-    Use my_exams=true to filter exams created by current user (admin only)."""
-    created_by = None
-    if my_exams and current_user.role == "admin":
-        created_by = current_user.userId
-    return crud.list_exams(db, skip=skip, limit=limit, created_by=created_by)
+    """List all exams. Accessible to both admin and student."""
+    return crud.list_exams(db, skip=skip, limit=limit)
 
 
 @router.get("/{exam_id}", response_model=ExamOut)

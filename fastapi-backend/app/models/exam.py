@@ -2,7 +2,7 @@ import uuid
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, Integer, String, ForeignKey
+from sqlalchemy import DateTime, Enum, Integer, String
 from sqlalchemy import Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,7 +25,6 @@ class Exam(Base):
     startTime: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     rules: Mapped[str] = mapped_column(String(1000), nullable=False)
     status: Mapped[ExamStatus] = mapped_column(Enum(ExamStatus), nullable=False, default=ExamStatus.DRAFT)
-    createdBy: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.userId"), nullable=True)
 
     questions = relationship("Question", back_populates="exam")
     submissions = relationship("Student", back_populates="exam")

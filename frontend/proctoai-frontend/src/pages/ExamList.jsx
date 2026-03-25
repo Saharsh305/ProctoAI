@@ -4,13 +4,11 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
-import useAuth from '../hooks/useAuth';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { examsAPI } from '../services/api';
 
 const ExamList = () => {
   const { toasts, addToast, removeToast } = useToast();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -22,9 +20,7 @@ const ExamList = () => {
   const loadExams = async () => {
     try {
       setLoading(true);
-      // Filter to show only admin's own exams
-      const myExams = user && user.role === 'admin';
-      const data = await examsAPI.list(0, 100, myExams);
+      const data = await examsAPI.list();
       setExams(data);
     } catch (err) {
       addToast(err.message || 'Failed to load exams', 'error');
@@ -74,8 +70,8 @@ const ExamList = () => {
         <Sidebar />
         <main className="main-content">
           <div className="page-header">
-            <h1 className="page-title">{user?.role === 'admin' ? 'My Exams' : 'All Exams'}</h1>
-            <p className="page-subtitle">Manage and monitor {user?.role === 'admin' ? 'your' : 'all'} examinations</p>
+            <h1 className="page-title">All Exams</h1>
+            <p className="page-subtitle">Manage and monitor all examinations</p>
           </div>
 
           {loading ? (

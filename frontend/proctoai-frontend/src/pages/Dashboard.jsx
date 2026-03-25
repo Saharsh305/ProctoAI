@@ -21,8 +21,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     if (user?.role !== 'admin') return;
-    // Filter to show only admin's own exams
-    examsAPI.list(0, 100, true)
+    examsAPI.list()
       .then(setExams)
       .finally(() => setLoading(false));
   }, [user]);

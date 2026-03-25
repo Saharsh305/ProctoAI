@@ -16,7 +16,6 @@ const AddQuestions = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [editingQuestion, setEditingQuestion] = useState(null);
 
   const [form, setForm] = useState({
     qid: '',
@@ -76,26 +75,13 @@ const AddQuestions = () => {
 
     setSubmitting(true);
     try {
-      if (editingQuestion) {
-        // Update existing question
-        await examsAPI.updateQuestion(examId, editingQuestion, {
-          ...form,
-          marks: Number(form.marks),
-          uid: currentUser.userId,
-          examId,
-        });
-        addToast('Question updated successfully!', 'success');
-        setEditingQuestion(null);
-      } else {
-        // Add new question
-        await examsAPI.addQuestion(examId, {
-          ...form,
-          marks: Number(form.marks),
-          uid: currentUser.userId,
-          examId,
-        });
-        addToast('Question added successfully!', 'success');
-      }
+      await examsAPI.addQuestion(examId, {
+        ...form,
+        marks: Number(form.marks),
+        uid: currentUser.userId,
+        examId,
+      });
+      addToast('Question added successfully!', 'success');
       setForm({
         qid: '',
         q: '',
@@ -108,7 +94,7 @@ const AddQuestions = () => {
       });
       await loadData(); // Reload questions
     } catch (err) {
-      addToast(err.message || `Failed to ${editingQuestion ? 'update' : 'add'} question`, 'error');
+      addToast(err.message || 'Failed to add question', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -124,36 +110,6 @@ const AddQuestions = () => {
     } catch (err) {
       addToast(err.message || 'Failed to delete question', 'error');
     }
-  };
-
-  const handleEditQuestion = (question) => {
-    setEditingQuestion(question.questions_uid);
-    setForm({
-      qid: question.qid,
-      q: question.q,
-      a: question.a,
-      b: question.b,
-      c: question.c,
-      d: question.d,
-      ans: question.ans,
-      marks: String(question.marks),
-    });
-    // Scroll to form
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleCancelEdit = () => {
-    setEditingQuestion(null);
-    setForm({
-      qid: '',
-      q: '',
-      a: '',
-      b: '',
-      c: '',
-      d: '',
-      ans: 'A',
-      marks: '1',
-    });
   };
 
   return (
@@ -188,39 +144,8 @@ const AddQuestions = () => {
               <div className="card card-no-hover">
                 <div className="card-body">
                   <h3 style={{ fontSize: '1.125rem', fontWeight: 600, marginBottom: '1.25rem' }}>
-                    {editingQuestion ? 'Edit Question' : 'Add New Question'}
+                    Add New Question
                   </h3>
-                  {editingQuestion && (
-                    <div
-                      style={{
-                        background: '#dbeafe',
-                        color: '#1e40af',
-                        padding: '0.75rem 1rem',
-                        borderRadius: 'var(--radius-sm)',
-                        marginBottom: '1rem',
-                        fontSize: '0.875rem',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <span>Editing question - make your changes and click Update Question</span>
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#1e40af',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          padding: '0.25rem 0.5rem',
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
                   <form onSubmit={handleSubmit}>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                       <div className="form-group">
@@ -355,18 +280,8 @@ const AddQuestions = () => {
                       disabled={submitting}
                       style={{ minWidth: 140 }}
                     >
-                      {submitting ? <LoadingSpinner /> : editingQuestion ? 'Update Question' : 'Add Question'}
+                      {submitting ? <LoadingSpinner /> : 'Add Question'}
                     </button>
-                    {editingQuestion && (
-                      <button
-                        type="button"
-                        onClick={handleCancelEdit}
-                        className="btn btn-ghost"
-                        style={{ marginLeft: '0.5rem' }}
-                      >
-                        Cancel
-                      </button>
-                    )}
                   </form>
                 </div>
               </div>
@@ -396,30 +311,17 @@ const AddQuestions = () => {
                             <div style={{ fontWeight: 600 }}>
                               Q{index + 1} ({q.qid}) - {q.marks} marks
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <button
-                                onClick={() => handleEditQuestion(q)}
-                                className="btn btn-ghost"
-                                style={{
-                                  fontSize: '0.875rem',
-                                  padding: '0.25rem 0.5rem',
-                                  color: 'var(--primary)',
-                                }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleDeleteQuestion(q.questions_uid)}
-                                className="btn btn-ghost"
-                                style={{
-                                  fontSize: '0.875rem',
-                                  padding: '0.25rem 0.5rem',
-                                  color: 'var(--danger)',
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => handleDeleteQuestion(q.questions_uid)}
+                              className="btn btn-ghost"
+                              style={{
+                                fontSize: '0.875rem',
+                                padding: '0.25rem 0.5rem',
+                                color: 'var(--danger)',
+                              }}
+                            >
+                              Delete
+                            </button>
                           </div>
                           <div style={{ marginBottom: '0.75rem', color: 'var(--text)' }}>
                             {q.q}

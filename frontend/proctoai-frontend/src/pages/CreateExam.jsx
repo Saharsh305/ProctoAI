@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import Toast from '../components/Toast';
@@ -16,6 +17,7 @@ const validateExamForm = (form) => {
 
 const CreateExam = () => {
   const { toasts, addToast, removeToast } = useToast();
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     title: '',
@@ -41,16 +43,18 @@ const CreateExam = () => {
     setLoading(true);
     setSuccess(false);
     try {
-      await examsAPI.create({
+      const createdExam = await examsAPI.create({
         title: form.title.trim(),
         duration: Number(form.duration),
         startTime: form.startTime || null,
         rules: form.rules.trim(),
         status: form.status,
       });
-      addToast('Exam created successfully!', 'success');
-      setSuccess(true);
-      setForm({ title: '', duration: '', startTime: '', rules: '', status: 'DRAFT' });
+      addToast('Exam created successfully! Redirecting to add questions...', 'success');
+      // Navigate to add questions page for the newly created exam
+      setTimeout(() => {
+        navigate(`/exams/${createdExam.examId}/questions`);
+      }, 1000);
     } catch (err) {
       addToast(err.message || 'Failed to create exam.', 'error');
     } finally {

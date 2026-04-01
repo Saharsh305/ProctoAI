@@ -131,6 +131,8 @@ const TakeExam = () => {
   const [violationLog, setViolationLog] = useState([]);
   const timerRef = useRef(null);
   const violationDebounceRef = useRef({});
+  const answersRef = useRef({});
+  const autoSubmitRef = useRef(null);
 
   // ── Hook 1: WebRTC Media Capture ────────────────────
   const {
@@ -268,7 +270,8 @@ const TakeExam = () => {
       setTimeLeft(remaining);
       if (remaining <= 0) {
         clearInterval(timerRef.current);
-        handleAutoSubmit();
+        // Call through ref to always use the latest closure
+        if (autoSubmitRef.current) autoSubmitRef.current();
       }
     }, 1000);
   };
@@ -289,6 +292,7 @@ const TakeExam = () => {
         initialAnswers[q.qid] = '';
       });
       setAnswers(initialAnswers);
+      answersRef.current = initialAnswers;
     } catch (err) {
       addToast(err.message || 'Failed to load exam', 'error');
       navigate('/student/exams');
@@ -298,15 +302,24 @@ const TakeExam = () => {
   };
 
   const handleAnswerChange = (qid, answer) => {
-    setAnswers((prev) => ({ ...prev, [qid]: answer }));
+    setAnswers((prev) => {
+      const next = { ...prev, [qid]: answer };
+      answersRef.current = next;
+      return next;
+    });
   };
 
-  const handleAutoSubmit = async () => {
+  const handleAutoSubmit = useCallback(async () => {
     // Sprint 5: Lock UI immediately (<100ms) before network call
     setExamLocked(true);
     addToast('Time is up! Submitting your exam...', 'info');
     await submitExam();
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep ref in sync so the setInterval closure always calls the latest version
+  useEffect(() => {
+    autoSubmitRef.current = handleAutoSubmit;
+  }, [handleAutoSubmit]);
 
   const handleSubmit = async () => {
     const confirmed = window.confirm(
@@ -329,8 +342,9 @@ const TakeExam = () => {
       // Flush any remaining violations in the batch buffer
       await flushBuffer();
 
-      // Prepare answers for submission
-      const answersList = Object.entries(answers).map(([qid, answer]) => ({
+      // Prepare answers for submission – use ref for the freshest state
+      const latestAnswers = answersRef.current;
+      const answersList = Object.entries(latestAnswers).map(([qid, answer]) => ({
         qid,
         answer: answer || 'Not Answered',
       }));

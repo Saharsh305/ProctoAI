@@ -98,6 +98,11 @@ def submit_exam(
     if payload.examId != exam_id:
         raise HTTPException(status_code=400, detail="Exam ID mismatch")
 
+    # Check if student already submitted answers for this exam
+    existing_answers = crud.get_student_answers(db, current_user.user_id, exam_id)
+    if existing_answers:
+        raise HTTPException(status_code=409, detail="You have already submitted this exam")
+
     # Save each answer
     submitted_count = 0
     for answer in payload.answers:

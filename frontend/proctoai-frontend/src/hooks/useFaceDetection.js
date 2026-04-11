@@ -45,8 +45,8 @@ function skinMask(imageData) {
     const y  =  0.299  * r + 0.587  * g + 0.114  * b;
     const cb = -0.1687 * r - 0.3313 * g + 0.5    * b + 128;
     const cr =  0.5    * r - 0.4187 * g - 0.0813 * b + 128;
-    // Skin-colour thresholds (empirically tuned)
-    if (cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173 && y > 60) {
+    // Widened skin-colour thresholds for better detection across skin tones
+    if (cb >= 70 && cb <= 135 && cr >= 125 && cr <= 180 && y > 40) {
       mask[i] = 1;
     }
   }
@@ -57,7 +57,7 @@ function skinMask(imageData) {
  * Connected-component labelling on the skin mask.
  * Returns array of bounding boxes [{x,y,w,h,area}].
  */
-function findBlobs(maskObj, minArea = 800) {
+function findBlobs(maskObj, minArea = 500) {
   const { mask, width, height } = maskObj;
   const labels = new Int32Array(width * height);
   let nextLabel = 1;
@@ -121,8 +121,8 @@ function findBlobs(maskObj, minArea = 800) {
     const w = bb.maxX - bb.minX;
     const h = bb.maxY - bb.minY;
     const aspectRatio = h / (w || 1);
-    // Face-like blob: roughly portrait aspect ratio
-    if (aspectRatio > 0.6 && aspectRatio < 2.5 && w > 30 && h > 30) {
+    // Relaxed aspect ratio: accept wider range of face orientations
+    if (aspectRatio > 0.4 && aspectRatio < 3.0 && w > 20 && h > 20) {
       result.push({ x: bb.minX, y: bb.minY, w, h, area: bb.area });
     }
   }

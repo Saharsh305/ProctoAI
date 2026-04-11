@@ -63,6 +63,16 @@ def log_violations_batch(payload: ViolationBatchCreate):
     )
 
 
+# ── Flush buffer (force write pending violations to DB) ──
+
+@router.post("/flush", status_code=200)
+async def flush_violation_buffer():
+    """Force-flush all pending violations from the async buffer to the DB.
+    Called before report generation to ensure all violations are persisted."""
+    count = await violation_buffer._flush()
+    return {"flushed": count, "message": f"{count} violation(s) flushed to database"}
+
+
 # ── Violation listing ──────────────────────────────────
 
 @router.get("/violations", response_model=list[ViolationOut])

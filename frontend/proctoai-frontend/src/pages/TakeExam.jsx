@@ -129,10 +129,13 @@ const TakeExam = () => {
   const [examLocked, setExamLocked] = useState(false);
   const [proctoringReady, setProctoringReady] = useState(false);
   const [violationLog, setViolationLog] = useState([]);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const timerRef = useRef(null);
   const violationDebounceRef = useRef({});
   const answersRef = useRef({});
   const autoSubmitRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
   // ── Hook 1: WebRTC Media Capture ────────────────────
   const {
@@ -168,10 +171,6 @@ const TakeExam = () => {
       // Add to local log
       setViolationLog((prev) => [...prev.slice(-49), { ...violation, id: now }]);
 
-      // Show toast
-      const severity = violation.type === 'multiple_faces' ? 'error' : 'warning';
-      addToast(violation.message, severity);
-
       // Enqueue to batch buffer (captures screenshot + uploads evidence)
       bufferEnqueue({
         email: user?.email || '',
@@ -180,10 +179,10 @@ const TakeExam = () => {
         message: violation.message,
         severity: violation.type === 'multiple_faces' ? 'critical' : 'warning',
         metadata_json: JSON.stringify(violation),
-        uid: user?.user_id || '',
+        uid: user?.userId || '',
       });
     },
-    [examId, user, addToast, bufferEnqueue]
+    [examId, user, bufferEnqueue]
   );
 
   // ── Hook 2: Face Detection AI ───────────────────────
@@ -208,7 +207,7 @@ const TakeExam = () => {
     dismissWarning: dismissTabWarning,
   } = useTabFocusMonitor({
     onViolation: logViolation,
-    enabled: proctoringReady,
+    enabled: proctoringReady && !submitting && !submitted,
   });
 
   // ── Hook 4: Audio Pattern Detection ─────────────────
@@ -237,16 +236,53 @@ const TakeExam = () => {
       const mediaStream = await requestMedia();
       if (mediaStream) {
         setProctoringReady(true);
+        // Request fullscreen mode for proctored exam
+        try {
+          await document.documentElement.requestFullscreen();
+        } catch (err) {
+          console.warn('[Fullscreen] Could not enter fullscreen:', err);
+        }
       }
     };
     initProctoring();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fullscreen exit detection ───────────────────────
+  useEffect(() => {
+    if (!proctoringReady) return;
+
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && !isSubmittingRef.current) {
+        // Student exited fullscreen – log violation and re-request
+        logViolation({
+          type: 'tab_switch',
+          message: 'Fullscreen exited during exam',
+          timestamp: Date.now(),
+        });
+        // Re-request fullscreen
+        try {
+          document.documentElement.requestFullscreen();
+        } catch (err) {
+          console.warn('[Fullscreen] Re-request failed:', err);
+        }
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [proctoringReady, logViolation]);
 
   // ── Cleanup on unmount ──────────────────────────────
   useEffect(() => {
     return () => {
       stopMedia();
       if (timerRef.current) clearInterval(timerRef.current);
+      // Exit fullscreen on unmount
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -256,12 +292,12 @@ const TakeExam = () => {
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (exam && timeLeft === 0) {
+    if (exam && proctoringReady && timeLeft === 0) {
       const durationInSeconds = exam.duration * 60;
       setTimeLeft(durationInSeconds);
       startTimer(durationInSeconds);
     }
-  }, [exam]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exam, proctoringReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startTimer = (initialTime) => {
     let remaining = initialTime;
@@ -311,6 +347,7 @@ const TakeExam = () => {
 
   const handleAutoSubmit = useCallback(async () => {
     // Sprint 5: Lock UI immediately (<100ms) before network call
+    isSubmittingRef.current = true;
     setExamLocked(true);
     addToast('Time is up! Submitting your exam...', 'info');
     await submitExam();
@@ -322,22 +359,31 @@ const TakeExam = () => {
   }, [handleAutoSubmit]);
 
   const handleSubmit = async () => {
-    const confirmed = window.confirm(
-      'Are you sure you want to submit your exam? You cannot change your answers after submission.'
-    );
-    if (confirmed) {
-      await submitExam();
-    }
+    if (submitted) return;
+    setShowSubmitConfirm(true);
+  };
+
+  const confirmSubmit = async () => {
+    setShowSubmitConfirm(false);
+    await submitExam();
   };
 
   const submitExam = async () => {
+    if (submitted) return; // Prevent double submission
+    isSubmittingRef.current = true;
     setSubmitting(true);
+    setSubmitted(true);
     try {
       // Clear timer & stop proctoring
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
       stopMedia();
+
+      // Exit fullscreen before navigation
+      if (document.fullscreenElement) {
+        try { await document.exitFullscreen(); } catch (e) { /* ignore */ }
+      }
 
       // Flush any remaining violations in the batch buffer
       await flushBuffer();
@@ -354,12 +400,19 @@ const TakeExam = () => {
         answers: answersList,
       });
 
+      // Force-flush backend violation buffer so all violations are in DB before report
+      try {
+        await proctoringAPI.flushBuffer();
+      } catch (flushErr) {
+        console.warn('[Flush] Backend buffer flush failed:', flushErr.message);
+      }
+
       // Generate proctoring report (Sprint 4 – fire-and-forget, don't block navigation)
       try {
         await reportsAPI.generate({
           test_id: examId,
           email: user?.email || '',
-          uid: user?.user_id || '',
+          uid: user?.userId || '',
         });
       } catch (reportErr) {
         console.warn('[Report] Auto-generation failed:', reportErr.message);
@@ -372,6 +425,8 @@ const TakeExam = () => {
     } catch (err) {
       addToast(err.message || 'Failed to submit exam', 'error');
       setSubmitting(false);
+      setSubmitted(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -395,6 +450,70 @@ const TakeExam = () => {
         <Navbar />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
           <LoadingSpinner />
+        </div>
+        <Toast toasts={toasts} onRemove={removeToast} />
+      </div>
+    );
+  }
+
+  /* ── Permission Gate: Block exam until camera & mic are granted ── */
+  if (permissionStatus !== 'granted') {
+    return (
+      <div>
+        <Navbar />
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '80vh',
+            padding: '2rem',
+            textAlign: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 'var(--radius-md)',
+              border: '2px solid var(--danger)',
+              padding: '3rem 2rem',
+              maxWidth: 480,
+              width: '100%',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📷</div>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.75rem' }}>
+              Camera &amp; Microphone Required
+            </h2>
+            <p style={{ color: 'var(--text-light)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+              This is a proctored exam. You must allow camera and microphone access to proceed.
+              Please grant permissions and try again.
+            </p>
+            {mediaError && (
+              <p style={{ color: 'var(--danger)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+                {mediaError}
+              </p>
+            )}
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                className="btn btn-primary"
+                onClick={async () => {
+                  const s = await requestMedia();
+                  if (s) setProctoringReady(true);
+                }}
+              >
+                Grant Permissions
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => navigate('/student/exams')}
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
         </div>
         <Toast toasts={toasts} onRemove={removeToast} />
       </div>
@@ -428,6 +547,60 @@ const TakeExam = () => {
             Your exam is being submitted automatically…
           </p>
           <LoadingSpinner />
+        </div>
+      )}
+
+      {/* ── Custom Submit Confirmation Modal (avoids window.confirm blur) ── */}
+      {showSubmitConfirm && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9998,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: 'var(--radius-md)',
+              padding: '2rem',
+              maxWidth: 420,
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📝</div>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+              Submit Exam?
+            </h3>
+            <p style={{ color: 'var(--text-light)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+              Are you sure you want to submit your exam? You cannot change your answers after submission.
+            </p>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-light)', marginBottom: '1.5rem' }}>
+              Answered: {Object.values(answers).filter((a) => a).length} / {questions.length}
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => setShowSubmitConfirm(false)}
+                style={{ minWidth: 100 }}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={confirmSubmit}
+                style={{ minWidth: 100 }}
+              >
+                Yes, Submit
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -547,10 +720,10 @@ const TakeExam = () => {
                 <button
                   className="btn btn-primary"
                   onClick={handleSubmit}
-                  disabled={submitting || examLocked}
+                  disabled={submitting || examLocked || submitted}
                   style={{ minWidth: 140 }}
                 >
-                  {submitting ? <LoadingSpinner /> : 'Submit Exam'}
+                  {submitting ? <LoadingSpinner /> : submitted ? 'Submitted ✓' : 'Submit Exam'}
                 </button>
               </div>
             </div>

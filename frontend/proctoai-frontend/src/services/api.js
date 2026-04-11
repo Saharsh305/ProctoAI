@@ -182,6 +182,13 @@ export const proctoringAPI = {
       headers: getHeaders(true),
       body: JSON.stringify(data),
     }).then(handleResponse),
+
+  /** Force-flush pending violations from the backend buffer to DB. */
+  flushBuffer: () =>
+    fetch(`${BASE_URL}/api/v1/proctoring/flush`, {
+      method: 'POST',
+      headers: getHeaders(true),
+    }).then(handleResponse),
 };
 
 // ── Window Events APIs (Sprint 2) ───────────────────

@@ -133,6 +133,7 @@ const TakeExam = () => {
   const [submitted, setSubmitted] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const timerRef = useRef(null);
+  const timerStartedRef = useRef(false);
   const violationDebounceRef = useRef({});
   const answersRef = useRef({});
   const autoSubmitRef = useRef(null);
@@ -227,7 +228,7 @@ const TakeExam = () => {
   // ── Feed frames to face detection ───────────────────
   useEffect(() => {
     if (currentFrame) {
-      processFrame(currentFrame);
+      processFrame(currentFrame); // async – fire and forget (back-pressure handled inside hook)
     }
   }, [currentFrame, processFrame]);
 
@@ -301,7 +302,8 @@ const TakeExam = () => {
   }, [examId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (exam && proctoringReady && timeLeft === 0) {
+    if (exam && proctoringReady && !timerStartedRef.current && !submitted) {
+      timerStartedRef.current = true;
       const durationInSeconds = exam.duration * 60;
       setTimeLeft(durationInSeconds);
       startTimer(durationInSeconds);
@@ -324,6 +326,19 @@ const TakeExam = () => {
   const loadExamData = async () => {
     try {
       setLoading(true);
+
+      // Check if student already submitted this exam before loading
+      try {
+        const submittedIds = await examsAPI.mySubmissions();
+        if (submittedIds.includes(examId)) {
+          addToast('You have already submitted this exam.', 'error');
+          navigate('/student/exams');
+          return;
+        }
+      } catch {
+        // If the check fails, continue loading – backend will still block re-submit
+      }
+
       const [examData, questionsData] = await Promise.all([
         examsAPI.get(examId),
         examsAPI.getQuestions(examId),
@@ -378,7 +393,7 @@ const TakeExam = () => {
   };
 
   const submitExam = async () => {
-    if (submitted) return; // Prevent double submission
+    if (submitted || isSubmittingRef.current) return; // Prevent double submission
     isSubmittingRef.current = true;
     setSubmitting(true);
     setSubmitted(true);
@@ -432,6 +447,14 @@ const TakeExam = () => {
         navigate('/student/exams');
       }, 2000);
     } catch (err) {
+      // If backend says already submitted (409), treat as success – don't allow retry
+      if (err.message && err.message.toLowerCase().includes('already submitted')) {
+        addToast('Exam was already submitted.', 'info');
+        setTimeout(() => {
+          navigate('/student/exams');
+        }, 2000);
+        return;
+      }
       addToast(err.message || 'Failed to submit exam', 'error');
       setSubmitting(false);
       setSubmitted(false);

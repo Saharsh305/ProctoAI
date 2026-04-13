@@ -4,16 +4,17 @@ import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import Toast from '../components/Toast';
 import useToast from '../hooks/useToast';
+import useAuth from '../hooks/useAuth';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { examsAPI, authAPI } from '../services/api';
+import { examsAPI } from '../services/api';
 
 const AddQuestions = () => {
   const { examId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toasts, addToast, removeToast } = useToast();
   const [exam, setExam] = useState(null);
   const [questions, setQuestions] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,14 +48,12 @@ const AddQuestions = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [examData, questionsData, userData] = await Promise.all([
+      const [examData, questionsData] = await Promise.all([
         examsAPI.get(examId),
         examsAPI.getQuestions(examId),
-        authAPI.me(),
       ]);
       setExam(examData);
       setQuestions(questionsData);
-      setCurrentUser(userData);
     } catch (err) {
       addToast(err.message || 'Failed to load exam data', 'error');
     } finally {
@@ -90,7 +89,7 @@ const AddQuestions = () => {
       await examsAPI.addQuestion(examId, {
         ...form,
         marks: Number(form.marks),
-        uid: currentUser.userId,
+        uid: user.userId,
         examId,
       });
       addToast('Question added successfully!', 'success');

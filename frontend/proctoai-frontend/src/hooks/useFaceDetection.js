@@ -1,161 +1,83 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
+import { FaceDetector, FilesetResolver } from '@mediapipe/tasks-vision';
 
 /**
- * useFaceDetection – Client-side AI Face Detection (Sprint 2 – REQ-4/5)
+ * useFaceDetection – Accurate Face Detection via MediaPipe BlazeFace (Sprint 2 – REQ-4/5)
  *
- * Uses a Haar-Cascade–style algorithm implemented in pure JS via an
- * efficient grayscale + integral-image + sliding-window approach.
- *
- * For production you'd load a proper Haar cascade XML, but here we use
- * a lightweight skin-colour + contour heuristic that works surprisingly
- * well for the "is a face present?" / "how many faces?" use-case.
+ * Uses Google MediaPipe's FaceDetector (BlazeFace short-range model) running
+ * in-browser via WebAssembly for real-time, accurate face detection.
  *
  * Responsibilities:
- *  • detectFace(imageData)  → boolean
- *  • detectMultipleFaces(imageData) → count
+ *  • Detect faces in a video frame using a proper neural-network model
+ *  • Count faces accurately (no false positives from hands/skin)
  *  • Configurable absence threshold (5–10s)
- *  • Fire violation callback when threshold exceeded
+ *  • Fire violation callback when face is absent too long or multiple faces detected
  */
 
-const DEFAULT_ABSENCE_THRESHOLD_MS = 7000; // 7 seconds default (configurable 5-10s)
-const FACE_CHECK_DEBOUNCE_MS = 500;
+const DEFAULT_ABSENCE_THRESHOLD_MS = 7000; // 7 seconds default
+const MIN_DETECTION_CONFIDENCE = 0.5;
 
-// ── Lightweight face detection via skin-colour segmentation ───────────
-function toGrayscale(imageData) {
-  const { data, width, height } = imageData;
-  const gray = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const off = i * 4;
-    gray[i] = 0.299 * data[off] + 0.587 * data[off + 1] + 0.114 * data[off + 2];
-  }
-  return { gray, width, height };
-}
+// ── Singleton MediaPipe FaceDetector instance ─────────
+let detectorPromise = null;
 
-/**
- * Very fast skin-colour detection in YCbCr space.
- * Returns a binary mask (Uint8Array) of skin pixels.
- * Uses very wide thresholds to work across all skin tones and lighting.
- */
-function skinMask(imageData) {
-  const { data, width, height } = imageData;
-  const mask = new Uint8Array(width * height);
-  for (let i = 0; i < width * height; i++) {
-    const off = i * 4;
-    const r = data[off], g = data[off + 1], b = data[off + 2];
-    // Convert to YCbCr
-    const y  =  0.299  * r + 0.587  * g + 0.114  * b;
-    const cb = -0.1687 * r - 0.3313 * g + 0.5    * b + 128;
-    const cr =  0.5    * r - 0.4187 * g - 0.0813 * b + 128;
-    // Very wide skin-colour thresholds for maximum recall across all skin tones
-    if (cb >= 60 && cb <= 145 && cr >= 115 && cr <= 190 && y > 30) {
-      mask[i] = 1;
-    }
-  }
-  // Simple 3x3 dilation pass to fill small gaps in the mask
-  const dilated = new Uint8Array(width * height);
-  for (let row = 1; row < height - 1; row++) {
-    for (let col = 1; col < width - 1; col++) {
-      const idx = row * width + col;
-      if (
-        mask[idx] ||
-        mask[idx - 1] || mask[idx + 1] ||
-        mask[idx - width] || mask[idx + width]
-      ) {
-        dilated[idx] = 1;
+async function getDetector() {
+  if (!detectorPromise) {
+    detectorPromise = (async () => {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+        );
+        const detector = await FaceDetector.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath:
+              'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite',
+            delegate: 'GPU',
+          },
+          runningMode: 'IMAGE',
+          minDetectionConfidence: MIN_DETECTION_CONFIDENCE,
+        });
+        return detector;
+      } catch (err) {
+        console.error('[FaceDetection] Failed to initialize MediaPipe detector:', err);
+        detectorPromise = null; // allow retry
+        return null;
       }
-    }
+    })();
   }
-  return { mask: dilated, width, height };
+  return detectorPromise;
 }
 
-/**
- * Connected-component labelling on the skin mask.
- * Returns array of bounding boxes [{x,y,w,h,area}].
- */
-function findBlobs(maskObj, minArea = 300) {
-  const { mask, width, height } = maskObj;
-  const labels = new Int32Array(width * height);
-  let nextLabel = 1;
-  const bboxes = new Map(); // label → {minX, minY, maxX, maxY, area}
+// ── Public detection helpers (work with ImageData) ────
+function imageDataToCanvas(imageData) {
+  const canvas = document.createElement('canvas');
+  canvas.width = imageData.width;
+  canvas.height = imageData.height;
+  const ctx = canvas.getContext('2d');
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-      if (mask[idx] === 0) continue;
-
-      // Check neighbours (left and top)
-      const left = x > 0 ? labels[idx - 1] : 0;
-      const top = y > 0 ? labels[idx - width] : 0;
-
-      let label;
-      if (left > 0 && top > 0) {
-        label = Math.min(left, top);
-        // Simple union
-        if (left !== top) {
-          const mergeFrom = Math.max(left, top);
-          for (let i = 0; i < labels.length; i++) {
-            if (labels[i] === mergeFrom) labels[i] = label;
-          }
-          // Merge bboxes
-          if (bboxes.has(mergeFrom)) {
-            const a = bboxes.get(label) || { minX: x, minY: y, maxX: x, maxY: y, area: 0 };
-            const b = bboxes.get(mergeFrom);
-            a.minX = Math.min(a.minX, b.minX);
-            a.minY = Math.min(a.minY, b.minY);
-            a.maxX = Math.max(a.maxX, b.maxX);
-            a.maxY = Math.max(a.maxY, b.maxY);
-            a.area += b.area;
-            bboxes.set(label, a);
-            bboxes.delete(mergeFrom);
-          }
-        }
-      } else if (left > 0) {
-        label = left;
-      } else if (top > 0) {
-        label = top;
-      } else {
-        label = nextLabel++;
-      }
-      labels[idx] = label;
-
-      if (!bboxes.has(label)) {
-        bboxes.set(label, { minX: x, minY: y, maxX: x, maxY: y, area: 0 });
-      }
-      const bb = bboxes.get(label);
-      if (x < bb.minX) bb.minX = x;
-      if (y < bb.minY) bb.minY = y;
-      if (x > bb.maxX) bb.maxX = x;
-      if (y > bb.maxY) bb.maxY = y;
-      bb.area++;
-    }
+export async function detectFaces(imageData) {
+  const detector = await getDetector();
+  if (!detector) return [];
+  const canvas = imageDataToCanvas(imageData);
+  try {
+    const result = detector.detect(canvas);
+    return result.detections || [];
+  } catch (err) {
+    console.warn('[FaceDetection] Detection error:', err);
+    return [];
   }
-
-  const result = [];
-  for (const [, bb] of bboxes) {
-    if (bb.area < minArea) continue;
-    const w = bb.maxX - bb.minX;
-    const h = bb.maxY - bb.minY;
-    const aspectRatio = h / (w || 1);
-    // Very relaxed constraints: accept most large skin blobs as faces
-    if (aspectRatio > 0.3 && aspectRatio < 4.0 && w > 15 && h > 15) {
-      result.push({ x: bb.minX, y: bb.minY, w, h, area: bb.area });
-    }
-  }
-  return result;
 }
 
-// ── Public detection functions ────────────────────────
-export function detectFaces(imageData) {
-  const maskObj = skinMask(imageData);
-  return findBlobs(maskObj);
+export async function detectFace(imageData) {
+  const faces = await detectFaces(imageData);
+  return faces.length > 0;
 }
 
-export function detectFace(imageData) {
-  return detectFaces(imageData).length > 0;
-}
-
-export function detectMultipleFaces(imageData) {
-  return detectFaces(imageData).length;
+export async function detectMultipleFaces(imageData) {
+  const faces = await detectFaces(imageData);
+  return faces.length;
 }
 
 // ── React hook ────────────────────────────────────────
@@ -172,59 +94,79 @@ export default function useFaceDetection({
   const absentSinceRef = useRef(null);
   const violationFiredRef = useRef(false);
   const consecutiveMissRef = useRef(0);
+  const processingRef = useRef(false);
+  const detectorReadyRef = useRef(false);
   const MISS_THRESHOLD = 3; // require 3 consecutive misses before counting as absent
 
+  // Pre-load the detector when the hook is first enabled
+  useEffect(() => {
+    if (enabled && !detectorReadyRef.current) {
+      getDetector().then((d) => {
+        if (d) detectorReadyRef.current = true;
+      });
+    }
+  }, [enabled]);
+
   const processFrame = useCallback(
-    (imageData) => {
+    async (imageData) => {
       if (!enabled || !imageData) return;
+      // Skip if a previous detection is still in progress
+      if (processingRef.current) return;
+      processingRef.current = true;
 
-      const faces = detectFaces(imageData);
-      const count = faces.length;
-      const detected = count > 0;
+      try {
+        const faces = await detectFaces(imageData);
+        const count = faces.length;
+        const detected = count > 0;
 
-      setFaceDetected(detected);
-      setFaceCount(count);
+        setFaceDetected(detected);
+        setFaceCount(count);
 
-      // ── Multiple faces violation ──────────────────
-      if (count > 1 && onViolation) {
-        onViolation({
-          type: 'multiple_faces',
-          message: `Multiple faces detected (${count})`,
-          count,
-          timestamp: Date.now(),
-        });
-      }
+        // ── Multiple faces violation ──────────────────
+        if (count > 1 && onViolation) {
+          onViolation({
+            type: 'multiple_faces',
+            message: `Multiple faces detected (${count})`,
+            count,
+            timestamp: Date.now(),
+          });
+        }
 
-      // ── Absence tracking (with consecutive miss buffer) ──
-      if (!detected) {
-        consecutiveMissRef.current += 1;
-        // Only start absence timer after MISS_THRESHOLD consecutive frames with no face
-        if (consecutiveMissRef.current >= MISS_THRESHOLD) {
-          if (absentSinceRef.current === null) {
-            absentSinceRef.current = Date.now();
-            setAbsentSince(Date.now());
-          } else {
-            const elapsed = Date.now() - absentSinceRef.current;
-            if (elapsed >= absenceThresholdMs && !violationFiredRef.current) {
-              violationFiredRef.current = true;
-              const v = {
-                type: 'face_absent',
-                message: `No face detected for ${Math.round(elapsed / 1000)}s`,
-                duration: elapsed,
-                timestamp: Date.now(),
-              };
-              setViolation(v);
-              if (onViolation) onViolation(v);
+        // ── Absence tracking (with consecutive miss buffer) ──
+        if (!detected) {
+          consecutiveMissRef.current += 1;
+          // Only start absence timer after MISS_THRESHOLD consecutive frames with no face
+          if (consecutiveMissRef.current >= MISS_THRESHOLD) {
+            if (absentSinceRef.current === null) {
+              absentSinceRef.current = Date.now();
+              setAbsentSince(Date.now());
+            } else {
+              const elapsed = Date.now() - absentSinceRef.current;
+              if (elapsed >= absenceThresholdMs && !violationFiredRef.current) {
+                violationFiredRef.current = true;
+                const v = {
+                  type: 'face_absent',
+                  message: `No face detected for ${Math.round(elapsed / 1000)}s`,
+                  duration: elapsed,
+                  timestamp: Date.now(),
+                };
+                setViolation(v);
+                if (onViolation) onViolation(v);
+              }
             }
           }
+        } else {
+          // Face returned – reset absence tracking
+          consecutiveMissRef.current = 0;
+          absentSinceRef.current = null;
+          violationFiredRef.current = false;
+          setAbsentSince(null);
+          setViolation(null);
         }
-      } else {
-        // Face returned – reset absence tracking
-        consecutiveMissRef.current = 0;
-        absentSinceRef.current = null;
-        violationFiredRef.current = false;
-        setAbsentSince(null);
-        setViolation(null);
+      } catch (err) {
+        console.warn('[FaceDetection] Frame processing error:', err);
+      } finally {
+        processingRef.current = false;
       }
     },
     [enabled, absenceThresholdMs, onViolation]

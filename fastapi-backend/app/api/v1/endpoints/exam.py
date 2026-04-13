@@ -97,6 +97,8 @@ def add_question_to_exam(
 
     # Ensure the question is associated with this exam
     payload.examId = exam_id
+    # Always set uid to the authenticated admin user (don't trust client)
+    payload.uid = current_user.user_id
     return crud.create_question(db, payload)
 
 

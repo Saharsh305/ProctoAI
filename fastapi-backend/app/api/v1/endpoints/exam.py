@@ -31,8 +31,10 @@ def list_exams(
     current_user: User = Depends(get_current_user),
 ):
     """List exams. Admin sees only their own exams; students see all."""
-    created_by = current_user.user_id if current_user.role.value == "admin" else None
-    return crud.list_exams(db, skip=skip, limit=limit, created_by=created_by)
+    if current_user.role.value == "admin":
+        return crud.list_exams(db, skip=skip, limit=limit, created_by=current_user.user_id)
+    else:
+        return crud.list_exams(db, skip=skip, limit=limit)
 
 
 @router.get("/my-submissions", response_model=list[str])

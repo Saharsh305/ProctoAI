@@ -12,6 +12,7 @@ const ExamList = () => {
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [statusLoading, setStatusLoading] = useState(null);
 
   useEffect(() => {
     loadExams();
@@ -26,6 +27,19 @@ const ExamList = () => {
       addToast(err.message || 'Failed to load exams', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (examId, newStatus) => {
+    setStatusLoading(examId);
+    try {
+      await examsAPI.update(examId, { status: newStatus });
+      addToast(`Exam status changed to ${newStatus}`, 'success');
+      loadExams();
+    } catch (err) {
+      addToast(err.message || 'Failed to update status', 'error');
+    } finally {
+      setStatusLoading(null);
     }
   };
 
@@ -133,7 +147,7 @@ const ExamList = () => {
                             {exam.duration} min
                           </td>
                           <td style={{ padding: '1rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <button
                                 className="btn btn-ghost"
                                 style={{ fontSize: '0.875rem', padding: '0.375rem 0.75rem' }}
@@ -141,6 +155,36 @@ const ExamList = () => {
                               >
                                 Manage Questions
                               </button>
+                              {exam.status === 'draft' && (
+                                <button
+                                  className="btn btn-primary"
+                                  style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                                  disabled={statusLoading === exam.examId}
+                                  onClick={() => handleStatusChange(exam.examId, 'active')}
+                                >
+                                  {statusLoading === exam.examId ? '...' : '▶ Activate'}
+                                </button>
+                              )}
+                              {exam.status === 'active' && (
+                                <button
+                                  className="btn btn-ghost"
+                                  style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem', color: 'var(--danger)' }}
+                                  disabled={statusLoading === exam.examId}
+                                  onClick={() => handleStatusChange(exam.examId, 'completed')}
+                                >
+                                  {statusLoading === exam.examId ? '...' : '⏹ Complete'}
+                                </button>
+                              )}
+                              {exam.status === 'completed' && (
+                                <button
+                                  className="btn btn-ghost"
+                                  style={{ fontSize: '0.75rem', padding: '0.375rem 0.75rem' }}
+                                  disabled={statusLoading === exam.examId}
+                                  onClick={() => handleStatusChange(exam.examId, 'draft')}
+                                >
+                                  {statusLoading === exam.examId ? '...' : '↩ Reset to Draft'}
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>

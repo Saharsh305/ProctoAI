@@ -20,7 +20,7 @@ def create_exam(
     current_user: User = Depends(require_role("admin")),
 ):
     """Create a new exam. Restricted to admin role only."""
-    return crud.create_exam(db, payload)
+    return crud.create_exam(db, payload, created_by=current_user.user_id)
 
 
 @router.get("/list", response_model=list[ExamOut])
@@ -30,8 +30,25 @@ def list_exams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all exams. Accessible to both admin and student."""
-    return crud.list_exams(db, skip=skip, limit=limit)
+    """List exams. Admin sees only their own exams; students see all."""
+    created_by = current_user.user_id if current_user.role.value == "admin" else None
+    return crud.list_exams(db, skip=skip, limit=limit, created_by=created_by)
+
+
+@router.get("/my-submissions", response_model=list[str])
+def my_submissions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    """Return list of exam IDs that the current student has already submitted."""
+    from app.models.student import Student
+    rows = (
+        db.query(Student.examId)
+        .filter(Student.uid == current_user.user_id)
+        .distinct()
+        .all()
+    )
+    return [str(r[0]) for r in rows]
 
 
 @router.get("/{exam_id}", response_model=ExamOut)

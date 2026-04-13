@@ -131,6 +131,7 @@ const TakeExam = () => {
   const [violationLog, setViolationLog] = useState([]);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const timerRef = useRef(null);
   const violationDebounceRef = useRef({});
   const answersRef = useRef({});
@@ -239,6 +240,7 @@ const TakeExam = () => {
         // Request fullscreen mode for proctored exam
         try {
           await document.documentElement.requestFullscreen();
+          setIsFullscreen(true);
         } catch (err) {
           console.warn('[Fullscreen] Could not enter fullscreen:', err);
         }
@@ -252,6 +254,7 @@ const TakeExam = () => {
     if (!proctoringReady) return;
 
     const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
       if (!document.fullscreenElement && !isSubmittingRef.current) {
         // Student exited fullscreen – log violation and re-request
         logViolation({
@@ -259,18 +262,24 @@ const TakeExam = () => {
           message: 'Fullscreen exited during exam',
           timestamp: Date.now(),
         });
-        // Re-request fullscreen
-        try {
-          document.documentElement.requestFullscreen();
-        } catch (err) {
-          console.warn('[Fullscreen] Re-request failed:', err);
-        }
+        // Re-request fullscreen after a short delay (browsers require user gesture
+        // for fullscreen, so we show an overlay that blocks the exam until they click)
+      }
+    };
+
+    // Intercept Escape key to prevent fullscreen exit
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' || e.key === 'F11') {
+        e.preventDefault();
+        e.stopPropagation();
       }
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('keydown', handleKeyDown, true);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [proctoringReady, logViolation]);
 
@@ -550,6 +559,44 @@ const TakeExam = () => {
         </div>
       )}
 
+      {/* ── Fullscreen enforcement overlay ── */}
+      {proctoringReady && !isFullscreen && !submitted && !examLocked && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9998,
+            background: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+          }}
+        >
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🖥️</div>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.5rem' }}>
+            Fullscreen Required
+          </h2>
+          <p style={{ fontSize: '1rem', opacity: 0.85, marginBottom: '1.5rem', textAlign: 'center', maxWidth: 400 }}>
+            You exited fullscreen mode. This violation has been logged. Click below to continue your exam.
+          </p>
+          <button
+            className="btn btn-primary"
+            style={{ fontSize: '1rem', padding: '0.75rem 2rem' }}
+            onClick={async () => {
+              try {
+                await document.documentElement.requestFullscreen();
+              } catch (err) {
+                console.warn('[Fullscreen] Re-request failed:', err);
+              }
+            }}
+          >
+            Re-enter Fullscreen
+          </button>
+        </div>
+      )}
+
       {/* ── Custom Submit Confirmation Modal (avoids window.confirm blur) ── */}
       {showSubmitConfirm && (
         <div
@@ -618,10 +665,7 @@ const TakeExam = () => {
         <WarningBanner message={faceViolation.message} type="danger" />
       )}
 
-      {/* ── Audio violation warning banner ─────────── */}
-      {audioViolation && (
-        <WarningBanner message={audioViolation.message} type="warning" />
-      )}
+      {/* Audio violations are logged silently – no popup banner */}
 
       {/* ── Permission denied banner ───────────────── */}
       {permissionStatus === 'denied' && (

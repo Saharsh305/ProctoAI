@@ -34,6 +34,7 @@ function toGrayscale(imageData) {
 /**
  * Very fast skin-colour detection in YCbCr space.
  * Returns a binary mask (Uint8Array) of skin pixels.
+ * Uses very wide thresholds to work across all skin tones and lighting.
  */
 function skinMask(imageData) {
   const { data, width, height } = imageData;
@@ -45,19 +46,33 @@ function skinMask(imageData) {
     const y  =  0.299  * r + 0.587  * g + 0.114  * b;
     const cb = -0.1687 * r - 0.3313 * g + 0.5    * b + 128;
     const cr =  0.5    * r - 0.4187 * g - 0.0813 * b + 128;
-    // Widened skin-colour thresholds for better detection across skin tones
-    if (cb >= 70 && cb <= 135 && cr >= 125 && cr <= 180 && y > 40) {
+    // Very wide skin-colour thresholds for maximum recall across all skin tones
+    if (cb >= 60 && cb <= 145 && cr >= 115 && cr <= 190 && y > 30) {
       mask[i] = 1;
     }
   }
-  return { mask, width, height };
+  // Simple 3x3 dilation pass to fill small gaps in the mask
+  const dilated = new Uint8Array(width * height);
+  for (let row = 1; row < height - 1; row++) {
+    for (let col = 1; col < width - 1; col++) {
+      const idx = row * width + col;
+      if (
+        mask[idx] ||
+        mask[idx - 1] || mask[idx + 1] ||
+        mask[idx - width] || mask[idx + width]
+      ) {
+        dilated[idx] = 1;
+      }
+    }
+  }
+  return { mask: dilated, width, height };
 }
 
 /**
  * Connected-component labelling on the skin mask.
  * Returns array of bounding boxes [{x,y,w,h,area}].
  */
-function findBlobs(maskObj, minArea = 500) {
+function findBlobs(maskObj, minArea = 300) {
   const { mask, width, height } = maskObj;
   const labels = new Int32Array(width * height);
   let nextLabel = 1;
@@ -121,8 +136,8 @@ function findBlobs(maskObj, minArea = 500) {
     const w = bb.maxX - bb.minX;
     const h = bb.maxY - bb.minY;
     const aspectRatio = h / (w || 1);
-    // Relaxed aspect ratio: accept wider range of face orientations
-    if (aspectRatio > 0.4 && aspectRatio < 3.0 && w > 20 && h > 20) {
+    // Very relaxed constraints: accept most large skin blobs as faces
+    if (aspectRatio > 0.3 && aspectRatio < 4.0 && w > 15 && h > 15) {
       result.push({ x: bb.minX, y: bb.minY, w, h, area: bb.area });
     }
   }
@@ -156,6 +171,8 @@ export default function useFaceDetection({
 
   const absentSinceRef = useRef(null);
   const violationFiredRef = useRef(false);
+  const consecutiveMissRef = useRef(0);
+  const MISS_THRESHOLD = 3; // require 3 consecutive misses before counting as absent
 
   const processFrame = useCallback(
     (imageData) => {
@@ -178,27 +195,32 @@ export default function useFaceDetection({
         });
       }
 
-      // ── Absence tracking ──────────────────────────
+      // ── Absence tracking (with consecutive miss buffer) ──
       if (!detected) {
-        if (absentSinceRef.current === null) {
-          absentSinceRef.current = Date.now();
-          setAbsentSince(Date.now());
-        } else {
-          const elapsed = Date.now() - absentSinceRef.current;
-          if (elapsed >= absenceThresholdMs && !violationFiredRef.current) {
-            violationFiredRef.current = true;
-            const v = {
-              type: 'face_absent',
-              message: `No face detected for ${Math.round(elapsed / 1000)}s`,
-              duration: elapsed,
-              timestamp: Date.now(),
-            };
-            setViolation(v);
-            if (onViolation) onViolation(v);
+        consecutiveMissRef.current += 1;
+        // Only start absence timer after MISS_THRESHOLD consecutive frames with no face
+        if (consecutiveMissRef.current >= MISS_THRESHOLD) {
+          if (absentSinceRef.current === null) {
+            absentSinceRef.current = Date.now();
+            setAbsentSince(Date.now());
+          } else {
+            const elapsed = Date.now() - absentSinceRef.current;
+            if (elapsed >= absenceThresholdMs && !violationFiredRef.current) {
+              violationFiredRef.current = true;
+              const v = {
+                type: 'face_absent',
+                message: `No face detected for ${Math.round(elapsed / 1000)}s`,
+                duration: elapsed,
+                timestamp: Date.now(),
+              };
+              setViolation(v);
+              if (onViolation) onViolation(v);
+            }
           }
         }
       } else {
         // Face returned – reset absence tracking
+        consecutiveMissRef.current = 0;
         absentSinceRef.current = null;
         violationFiredRef.current = false;
         setAbsentSince(null);

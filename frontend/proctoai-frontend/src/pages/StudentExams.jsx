@@ -11,6 +11,7 @@ const StudentExams = () => {
   const { toasts, addToast, removeToast } = useToast();
   const navigate = useNavigate();
   const [exams, setExams] = useState([]);
+  const [submittedExamIds, setSubmittedExamIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -20,9 +21,13 @@ const StudentExams = () => {
   const loadExams = async () => {
     try {
       setLoading(true);
-      const data = await examsAPI.list();
+      const [data, submitted] = await Promise.all([
+        examsAPI.list(),
+        examsAPI.mySubmissions().catch(() => []),
+      ]);
       // Filter only ACTIVE exams for students
       setExams(data.filter((exam) => exam.status === 'active'));
+      setSubmittedExamIds(new Set(submitted));
     } catch (err) {
       addToast(err.message || 'Failed to load exams', 'error');
     } finally {
@@ -111,12 +116,22 @@ const StudentExams = () => {
                         )}
                       </div>
                       <div>
-                        <button
-                          className="btn btn-primary"
-                          onClick={() => navigate(`/student/exams/${exam.examId}/take`)}
-                        >
-                          Start Exam
-                        </button>
+                        {submittedExamIds.has(exam.examId) ? (
+                          <button
+                            className="btn btn-ghost"
+                            disabled
+                            style={{ opacity: 0.7 }}
+                          >
+                            ✅ Submitted
+                          </button>
+                        ) : (
+                          <button
+                            className="btn btn-primary"
+                            onClick={() => navigate(`/student/exams/${exam.examId}/take`)}
+                          >
+                            Start Exam
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

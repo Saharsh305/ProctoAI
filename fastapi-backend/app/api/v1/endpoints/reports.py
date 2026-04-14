@@ -9,6 +9,7 @@ Provides:
   GET  /reports/{report_id}/pdf      – download PDF
 """
 
+import uuid as _uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -57,9 +58,14 @@ def generate_exam_report(
     4. Render PDF via ReportLab
     Target: < 2 s.
     """
-    # Optionally look up exam title
-    exam = crud.get_exam_by_id(db, payload.test_id)
-    exam_title = exam.title if exam else ""
+    # Optionally look up exam title (test_id is a string UUID)
+    exam_title = ""
+    try:
+        exam = crud.get_exam_by_id(db, _uuid.UUID(payload.test_id))
+        if exam:
+            exam_title = exam.title
+    except (ValueError, AttributeError):
+        pass
 
     report = generate_report(
         db,

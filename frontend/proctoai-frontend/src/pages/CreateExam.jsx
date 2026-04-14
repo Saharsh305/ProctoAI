@@ -44,8 +44,8 @@ const CreateExam = () => {
       await examsAPI.create({
         title: form.title.trim(),
         duration: Number(form.duration),
-        startTime: form.startTime || null,
-        rules: form.rules.trim(),
+        startTime: form.startTime || new Date().toISOString(),
+        rules: form.rules.trim() || 'No specific rules.',
         status: form.status.toLowerCase(),
       });
       addToast('Exam created successfully!', 'success');

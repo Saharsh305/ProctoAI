@@ -20,7 +20,7 @@ def create_exam(
     current_user: User = Depends(require_role("admin")),
 ):
     """Create a new exam. Restricted to admin role only."""
-    return crud.create_exam(db, payload)
+    return crud.create_exam(db, payload, created_by=current_user.user_id)
 
 
 @router.get("/list", response_model=list[ExamOut])
@@ -30,8 +30,27 @@ def list_exams(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """List all exams. Accessible to both admin and student."""
-    return crud.list_exams(db, skip=skip, limit=limit)
+    """List exams. Admin sees only their own exams; students see all."""
+    if current_user.role.value == "admin":
+        return crud.list_exams(db, skip=skip, limit=limit, created_by=current_user.user_id)
+    else:
+        return crud.list_exams(db, skip=skip, limit=limit)
+
+
+@router.get("/my-submissions", response_model=list[str])
+def my_submissions(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("student")),
+):
+    """Return list of exam IDs that the current student has already submitted."""
+    from app.models.student import Student
+    rows = (
+        db.query(Student.examId)
+        .filter(Student.uid == current_user.user_id)
+        .distinct()
+        .all()
+    )
+    return [str(r[0]) for r in rows]
 
 
 @router.get("/{exam_id}", response_model=ExamOut)
@@ -78,6 +97,8 @@ def add_question_to_exam(
 
     # Ensure the question is associated with this exam
     payload.examId = exam_id
+    # Always set uid to the authenticated admin user (don't trust client)
+    payload.uid = current_user.user_id
     return crud.create_question(db, payload)
 
 
@@ -97,6 +118,11 @@ def submit_exam(
     # Verify exam IDs match
     if payload.examId != exam_id:
         raise HTTPException(status_code=400, detail="Exam ID mismatch")
+
+    # Check if student already submitted answers for this exam
+    existing_answers = crud.get_student_answers(db, current_user.user_id, exam_id)
+    if existing_answers:
+        raise HTTPException(status_code=409, detail="You have already submitted this exam")
 
     # Save each answer
     submitted_count = 0

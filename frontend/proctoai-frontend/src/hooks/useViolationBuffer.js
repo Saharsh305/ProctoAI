@@ -62,15 +62,15 @@ export default function useViolationBuffer({
         try {
           const blob = await captureScreenshot(webcamRef);
           if (blob) {
-            const { data } = await proctoringAPI.getEvidenceUploadUrl({
+            const result = await proctoringAPI.getEvidenceUploadUrl({
               test_id: violationData.test_id,
               email: violationData.email,
               violation_type: violationData.violation_type,
               timestamp_ms: Date.now(),
             });
-            const ok = await uploadToPresignedUrl(data.upload_url, blob);
+            const ok = await uploadToPresignedUrl(result.upload_url, blob);
             if (ok) {
-              evidence_url = data.object_url;
+              evidence_url = result.object_url;
             }
           }
         } catch (err) {

@@ -78,6 +78,11 @@ export const examsAPI = {
       headers: getHeaders(true),
     }).then(handleResponse),
 
+  mySubmissions: () =>
+    fetch(`${BASE_URL}/api/v1/exam/my-submissions`, {
+      headers: getHeaders(true),
+    }).then(handleResponse),
+
   get: (examId) =>
     fetch(`${BASE_URL}/api/v1/exam/${examId}`, {
       headers: getHeaders(true),
@@ -182,6 +187,13 @@ export const proctoringAPI = {
       headers: getHeaders(true),
       body: JSON.stringify(data),
     }).then(handleResponse),
+
+  /** Force-flush pending violations from the backend buffer to DB. */
+  flushBuffer: () =>
+    fetch(`${BASE_URL}/api/v1/proctoring/flush`, {
+      method: 'POST',
+      headers: getHeaders(true),
+    }).then(handleResponse),
 };
 
 // ── Window Events APIs (Sprint 2) ───────────────────
@@ -284,6 +296,15 @@ export const adminAPI = {
     const params = new URLSearchParams();
     if (violationId) params.set('violation_id', violationId);
     return fetch(`${BASE_URL}/api/v1/admin/actions?${params}`, {
+      headers: getHeaders(true),
+    }).then(handleResponse);
+  },
+
+  /** Get per-exam student summary (violations + trust scores). */
+  examStudents: (testId = '') => {
+    const params = new URLSearchParams();
+    if (testId) params.set('test_id', testId);
+    return fetch(`${BASE_URL}/api/v1/admin/exam-students?${params}`, {
       headers: getHeaders(true),
     }).then(handleResponse);
   },

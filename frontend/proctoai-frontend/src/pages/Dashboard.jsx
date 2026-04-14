@@ -88,7 +88,7 @@ const Dashboard = () => {
                   />
                   <StatCard
                     label="Draft Exams"
-                    value={loading ? '…' : exams.filter(e => e.status === 'DRAFT').length}
+                    value={loading ? '…' : exams.filter(e => e.status === 'draft').length}
                     colorClass="stat-icon-accent"
                     delay={80}
                     icon={
@@ -101,7 +101,7 @@ const Dashboard = () => {
                   />
                   <StatCard
                     label="Active Exams"
-                    value={loading ? '…' : exams.filter(e => e.status === 'ACTIVE').length}
+                    value={loading ? '…' : exams.filter(e => e.status === 'active').length}
                     colorClass="stat-icon-success"
                     delay={160}
                     icon={

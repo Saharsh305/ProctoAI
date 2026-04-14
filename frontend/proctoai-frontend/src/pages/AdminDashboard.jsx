@@ -139,7 +139,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedViolation, setSelectedViolation] = useState(null);
-  const [tab, setTab] = useState('violations'); // violations | audit
+  const [tab, setTab] = useState('exams'); // exams | violations | audit
 
   // Filters
   const [filterEmail, setFilterEmail] = useState('');
@@ -152,6 +152,35 @@ const AdminDashboard = () => {
 
   // Stats
   const [totalCount, setTotalCount] = useState(0);
+
+  // Exam Monitoring
+  const [examOverview, setExamOverview] = useState([]);
+  const [examDetail, setExamDetail] = useState(null);
+  const [examLoading, setExamLoading] = useState(false);
+
+  const loadExamOverview = useCallback(async () => {
+    try {
+      setExamLoading(true);
+      const data = await adminAPI.examStudents();
+      setExamOverview(data);
+    } catch (err) {
+      addToast(err.message || 'Failed to load exam data', 'error');
+    } finally {
+      setExamLoading(false);
+    }
+  }, [addToast]);
+
+  const loadExamDetail = useCallback(async (testId) => {
+    try {
+      setExamLoading(true);
+      const data = await adminAPI.examStudents(testId);
+      setExamDetail(data);
+    } catch (err) {
+      addToast(err.message || 'Failed to load exam detail', 'error');
+    } finally {
+      setExamLoading(false);
+    }
+  }, [addToast]);
 
   const loadViolations = useCallback(async () => {
     try {
@@ -184,7 +213,8 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (tab === 'audit') loadAuditLog();
-  }, [tab, loadAuditLog]);
+    if (tab === 'exams') loadExamOverview();
+  }, [tab, loadAuditLog, loadExamOverview]);
 
   const handleAction = async (payload) => {
     try {
@@ -285,6 +315,7 @@ const AdminDashboard = () => {
         {/* Tabs */}
         <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1rem' }}>
           {[
+            { key: 'exams', label: '📊 Exam Monitoring' },
             { key: 'violations', label: '📋 Violations' },
             { key: 'audit', label: '📜 Audit Log' },
           ].map((t) => (
@@ -308,6 +339,127 @@ const AdminDashboard = () => {
             </button>
           ))}
         </div>
+
+        {/* ─── Exam Monitoring Tab ─────────────────── */}
+        {tab === 'exams' && (
+          <div className="card card-no-hover" style={{ padding: '1.25rem' }}>
+            {examDetail ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
+                      📝 {examDetail.exam_title}
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
+                      {examDetail.students?.length || 0} student(s) with proctoring data
+                    </p>
+                  </div>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setExamDetail(null)}>
+                    ← Back to Exams
+                  </button>
+                </div>
+
+                {examDetail.students?.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-light)' }}>
+                    No student proctoring data for this exam yet.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                          <th style={{ padding: '0.6rem', textAlign: 'left' }}>Student Email</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}>Violations</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}>Trust Score</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}>Report</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {examDetail.students.map((s) => {
+                          const trustColor = s.trust_score == null
+                            ? '#94a3b8'
+                            : s.trust_score >= 70
+                            ? '#10b981'
+                            : s.trust_score >= 40
+                            ? '#f59e0b'
+                            : '#ef4444';
+                          return (
+                            <tr key={s.email} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                              <td style={{ padding: '0.6rem', color: '#6366f1', fontSize: '0.8rem' }}>{s.email}</td>
+                              <td style={{ padding: '0.6rem', textAlign: 'center', fontWeight: 600 }}>{s.violation_count}</td>
+                              <td style={{ padding: '0.6rem', textAlign: 'center' }}>
+                                <span style={{ fontWeight: 700, color: trustColor }}>
+                                  {s.trust_score != null ? `${s.trust_score}/100` : '—'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '0.6rem', textAlign: 'center' }}>
+                                {s.report_id ? (
+                                  <span style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 600 }}>✅ Generated</span>
+                                ) : (
+                                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Pending</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 700 }}>Exams with Proctoring Data</h3>
+                  <button className="btn btn-ghost btn-sm" onClick={loadExamOverview}>🔄 Refresh</button>
+                </div>
+
+                {examLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem 0' }}>
+                    <LoadingSpinner />
+                  </div>
+                ) : examOverview.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '2rem 0', color: 'var(--text-light)' }}>
+                    No proctoring data found yet.
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                          <th style={{ padding: '0.6rem', textAlign: 'left' }}>Exam</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}>Students</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}>Total Violations</th>
+                          <th style={{ padding: '0.6rem', textAlign: 'center' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {examOverview.map((ex) => (
+                          <tr key={ex.test_id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                            <td style={{ padding: '0.6rem', fontWeight: 600 }}>{ex.exam_title}</td>
+                            <td style={{ padding: '0.6rem', textAlign: 'center' }}>{ex.student_count}</td>
+                            <td style={{ padding: '0.6rem', textAlign: 'center', color: ex.total_violations > 0 ? '#ef4444' : '#10b981', fontWeight: 600 }}>
+                              {ex.total_violations}
+                            </td>
+                            <td style={{ padding: '0.6rem', textAlign: 'center' }}>
+                              <button
+                                className="btn btn-outline btn-sm"
+                                style={{ fontSize: '0.75rem', padding: '0.3rem 0.75rem' }}
+                                onClick={() => loadExamDetail(ex.test_id)}
+                              >
+                                View Students
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* ─── Violations Tab ──────────────────────── */}
         {tab === 'violations' && (

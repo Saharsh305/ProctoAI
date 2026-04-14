@@ -1,9 +1,13 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func as sa_func, distinct
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, require_admin
 from app.models.user import User
+from app.models.violation import Violation
+from app.models.exam import Exam
+from app.models.exam_report import ExamReport
 from app.crud.admin import (
     create_action,
     list_actions,
@@ -89,3 +93,82 @@ def admin_list_actions(
 ):
     """List admin action audit log. Optionally filter by violation_id."""
     return list_actions(db, violation_id=violation_id, skip=skip, limit=limit)
+
+
+@router.get("/exam-students")
+def admin_exam_students(
+    test_id: str | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_admin),
+):
+    """
+    Return per-exam, per-student summary: email, violation count, trust score.
+    If test_id is provided, return students for that exam only.
+    Otherwise return a list of exams with aggregated student data.
+    """
+    if test_id:
+        # Per-student breakdown for a specific exam
+        rows = (
+            db.query(
+                Violation.email,
+                sa_func.count(Violation.vid).label("violation_count"),
+            )
+            .filter(Violation.test_id == test_id)
+            .group_by(Violation.email)
+            .all()
+        )
+
+        students = []
+        for email, violation_count in rows:
+            # Check if report exists
+            report = (
+                db.query(ExamReport)
+                .filter(ExamReport.test_id == test_id, ExamReport.email == email)
+                .first()
+            )
+            students.append({
+                "email": email,
+                "violation_count": violation_count,
+                "trust_score": report.trust_score if report else None,
+                "report_id": report.report_id if report else None,
+            })
+
+        # Get exam title
+        try:
+            exam = db.query(Exam).filter(Exam.examId == uuid.UUID(test_id)).first()
+            exam_title = exam.title if exam else test_id
+        except (ValueError, AttributeError):
+            exam_title = test_id
+
+        return {
+            "test_id": test_id,
+            "exam_title": exam_title,
+            "students": students,
+        }
+    else:
+        # Overview: list of exams with student counts and violation counts
+        rows = (
+            db.query(
+                Violation.test_id,
+                sa_func.count(distinct(Violation.email)).label("student_count"),
+                sa_func.count(Violation.vid).label("total_violations"),
+            )
+            .group_by(Violation.test_id)
+            .all()
+        )
+
+        result = []
+        for test_id, student_count, total_violations in rows:
+            try:
+                exam = db.query(Exam).filter(Exam.examId == uuid.UUID(test_id)).first()
+                exam_title = exam.title if exam else test_id
+            except (ValueError, AttributeError):
+                exam_title = test_id
+            result.append({
+                "test_id": test_id,
+                "exam_title": exam_title,
+                "student_count": student_count,
+                "total_violations": total_violations,
+            })
+
+        return result

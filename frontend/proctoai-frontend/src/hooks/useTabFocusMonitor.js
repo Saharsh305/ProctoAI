@@ -22,17 +22,23 @@ export default function useTabFocusMonitor({ onViolation, enabled = true } = {})
   const [lastViolationTime, setLastViolationTime] = useState(null);
 
   const warningTimeoutRef = useRef(null);
+  const lastFireTimeRef = useRef(0);
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
 
   const onViolationRef = useRef(onViolation);
   onViolationRef.current = onViolation;
 
-  // ── Fire violation ──────────────────────────────────
+  // ── Fire violation (deduplicated – only once per 1s window) ──
   const fireViolation = useCallback((reason) => {
     if (!enabledRef.current) return;
 
+    // Deduplicate: both visibilitychange + blur fire for one tab switch.
+    // Only count once within a 1-second window.
     const now = Date.now();
+    if (now - lastFireTimeRef.current < 1000) return;
+    lastFireTimeRef.current = now;
+
     setTabSwitchCount((c) => c + 1);
     setLastViolationTime(now);
 
